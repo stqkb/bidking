@@ -84,17 +84,21 @@ export default function AnnotatePage() {
   const detect = useCallback(async (path: string) => {
     setBusy(true);
     setMsg("正在自动识别红品格子…");
+    const ac = new AbortController();
+    const timer = setTimeout(() => ac.abort(), 30000);  // 防 OCR 卡死导致按钮一直禁用
     try {
       const [detRes, ocrRes] = await Promise.all([
         fetch("/api/vision/auto_detect", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ image_path: path }),
+          signal: ac.signal,
         }),
         fetch("/api/ocr/recognize", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ path }),
+          signal: ac.signal,
         }),
       ]);
       const j = await detRes.json();
@@ -137,8 +141,15 @@ export default function AnnotatePage() {
       if (s.profit != null) parts.push(`收益 ${s.profit.toLocaleString()}`);
       setMsg(parts.join(" · ") + "，红品已自动计入本局汇总，可在下方修改后保存");
     } catch (e) {
-      setMsg(e instanceof Error ? e.message : String(e));
+      setMsg(
+        e instanceof Error && e.name === "AbortError"
+          ? "识别超时（30 秒），请重试"
+          : e instanceof Error
+            ? e.message
+            : String(e),
+      );
     } finally {
+      clearTimeout(timer);
       setBusy(false);
     }
   }, []);
@@ -362,6 +373,7 @@ export default function AnnotatePage() {
       return;
     }
     setBusy(true);
+    try {
     const picked: { name: string; grid_cells: number; value: number }[] = [];
     for (const i of Array.from(checked)) {
       const cell = cells[i];
@@ -409,7 +421,9 @@ export default function AnnotatePage() {
     setMsg(`已勾选 ${picked.length} 件红品，汇总后共 ${summary.items.length + picked.length} 件`);
     setChecked(new Set());
     loadAnno(imagePath);
-    setBusy(false);
+    } finally {
+      setBusy(false);
+    }
   };
 
   const updateSettle = (k: "total_value" | "deal_price" | "profit", v: string) => {
@@ -709,9 +723,21 @@ export default function AnnotatePage() {
                     value={manualValue}
                     onChange={(e) => setManualValue(e.target.value)}
                   />
-                  <button className="btn-primary !py-1.5 text-xs" onClick={saveManual} disabled={busy || !manualBox}>
+                  <button
+                    className="btn-primary !py-1.5 text-xs"
+                    onClick={saveManual}
+                    disabled={busy || !manualBox}
+                    title={
+                      busy
+                        ? "正在处理中…，请稍候"
+                        : !manualBox
+                          ? "请先在图片上拖拽框选红品图标"
+                          : "保存手动红品"
+                    }
+                  >
                     保存手动红品
                   </button>
+                  {busy && <span className="text-[11px] text-amber-300">处理中…</span>}
                   {manualBox && <span className="text-[11px] text-slate-400">已框选 ({manualBox[0]},{manualBox[1]})</span>}
                 </div>
                 <div className="mb-1 text-[11px] text-slate-400">
