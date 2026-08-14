@@ -88,6 +88,11 @@ class SummaryItemInput(BaseModel):
 class SaveSummaryInput(BaseModel):
     items: list[SummaryItemInput] = []
     settlement: dict[str, Any] = {}
+    won: bool = False  # 是否本人竞拍成功（用于收益规律统计）
+
+
+class GameWonInput(BaseModel):
+    won: bool
 
 
 class CatalogDeleteInput(BaseModel):

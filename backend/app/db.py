@@ -53,7 +53,8 @@ CREATE TABLE IF NOT EXISTS game_records (
     min_bid REAL,
     profit REAL,
     winner TEXT,
-    items_json TEXT
+    items_json TEXT,
+    won INTEGER
 );
 
 CREATE TABLE IF NOT EXISTS user_records (
@@ -117,6 +118,9 @@ def init_db() -> None:
         cols = [r[1] for r in conn.execute("PRAGMA table_info(catalog_items)").fetchall()]
         if "current_value" not in cols:
             conn.execute("ALTER TABLE catalog_items ADD COLUMN current_value REAL")
+        gcols = [r[1] for r in conn.execute("PRAGMA table_info(game_records)").fetchall()]
+        if "won" not in gcols:
+            conn.execute("ALTER TABLE game_records ADD COLUMN won INTEGER")
 
 
 def rows_to_dicts(rows: list[sqlite3.Row]) -> list[dict[str, Any]]:

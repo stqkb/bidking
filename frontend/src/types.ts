@@ -105,6 +105,7 @@ export interface GameRecord {
   min_bid: number | null;
   profit: number | null;
   winner: string | null;
+  won: number | null;  // 本人是否竞拍成功：1 成功 / 0 未成功 / null 未标记
   items: { name: string; grid_cells: number; sys_price?: number | null; trade_price?: number | null }[];
 }
 

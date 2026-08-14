@@ -104,6 +104,18 @@ def games() -> dict[str, Any]:
     return {"games": out}
 
 
+@router.patch("/api/games/{game_no}")
+def game_update_won(game_no: int, body: schemas.GameWonInput) -> dict[str, Any]:
+    """更新对局的「本人是否竞拍成功」标记（收益规律统计用）。"""
+    with db() as conn:
+        cur = conn.execute(
+            "UPDATE game_records SET won=? WHERE game_no=?", (1 if body.won else 0, game_no)
+        )
+        if cur.rowcount == 0:
+            raise HTTPException(status_code=404, detail="对局不存在")
+    return {"ok": True, "game_no": game_no, "won": body.won}
+
+
 @router.get("/api/records")
 def records() -> dict[str, Any]:
     with db() as conn:

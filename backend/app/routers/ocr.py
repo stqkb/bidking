@@ -88,11 +88,11 @@ def ocr_save_summary(body: schemas.SaveSummaryInput) -> dict[str, Any]:
         conn.execute(
             """INSERT INTO game_records
                (game_no, grid_combo, red_count, red_grids, red_avg, red_value,
-                full_value, deal_price, profit, items_json)
-               VALUES (?,?,?,?,?,?,?,?,?,?)""",
+                full_value, deal_price, profit, items_json, won)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?)""",
             (game_no, combo, red_count if red_count else None, red_grids or None,
              red_avg, red_value or None, full_value, deal_price, profit,
-             json_dumps(saved_items)),
+             json_dumps(saved_items), 1 if body.won else 0),
         )
     if red_count > 0:
         bg.start("train", estimator.retrain_all, force=True)

@@ -46,6 +46,13 @@ export default function RecordsPage() {
     load();
   };
 
+  const toggleWon = async (g: GameRecord) => {
+    // 未标记/未成功 → 本人竞拍成功；已成功 → 取消
+    const next = g.won === 1 ? 0 : 1;
+    await api.updateGameWon(g.game_no, next === 1);
+    await load();
+  };
+
   const chartOption = (() => {
     const done = records.filter(
       (r) => r.status === "completed" && r.prediction?.full?.ev && r.actual?.full_value,
@@ -86,6 +93,51 @@ export default function RecordsPage() {
     };
   })();
 
+  const profitChartOption = (() => {
+    // 收益规律：x=局号，y=收益；蓝色=本人竞拍成功，灰色=未成功/未标记
+    const won = games.filter((g) => g.won === 1 && g.profit !== null);
+    const notWon = games.filter((g) => g.won !== 1 && g.profit !== null);
+    if (won.length + notWon.length === 0) return null;
+    return {
+      tooltip: {
+        trigger: "item",
+        formatter: (p: any) => `局 ${p.data[0]}：${p.data[1] >= 0 ? "+" : ""}${fmtMoney(p.data[1])}`,
+      },
+      legend: { textStyle: { color: "#94a3b8" }, top: 0 },
+      grid: { left: 72, right: 20, top: 32, bottom: 40 },
+      xAxis: {
+        type: "value",
+        name: "局号",
+        axisLabel: { color: "#94a3b8" },
+        splitLine: { lineStyle: { color: "#1e293b" } },
+      },
+      yAxis: {
+        type: "value",
+        name: "收益",
+        axisLabel: { color: "#94a3b8", formatter: (v: number) => fmtWan(v) },
+        splitLine: { lineStyle: { color: "#1e293b" } },
+      },
+      series: [
+        {
+          name: "本人竞拍成功",
+          type: "line",
+          data: won.map((g) => [g.game_no, g.profit]),
+          symbolSize: 9,
+          itemStyle: { color: "#3b82f6" },
+          lineStyle: { color: "#3b82f6", width: 2 },
+        },
+        {
+          name: "未成功/未标记",
+          type: "line",
+          data: notWon.map((g) => [g.game_no, g.profit]),
+          symbolSize: 6,
+          itemStyle: { color: "#64748b" },
+          lineStyle: { color: "#64748b", type: "dashed", width: 1 },
+        },
+      ],
+    };
+  })();
+
   return (
     <div className="space-y-5">
       {msg && (
@@ -106,7 +158,8 @@ export default function RecordsPage() {
                 <th className="py-2 pr-3">红品价值</th>
                 <th className="py-2 pr-3">全场总价值</th>
                 <th className="py-2 pr-3">成交价</th>
-                <th className="py-2">盈亏</th>
+                <th className="py-2 pr-3">盈亏</th>
+                <th className="py-2">竞拍</th>
               </tr>
             </thead>
             <tbody className="tabular-nums">
@@ -132,10 +185,28 @@ export default function RecordsPage() {
                         <span className="text-rose-600">{fmtMoney(g.profit)}</span>
                       )}
                     </td>
+                    <td className="py-2">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleWon(g);
+                        }}
+                        title="点击切换：未标记 → 本人竞拍成功 → 未成功（收益规律仅统计成功局）"
+                        className={`rounded px-1.5 py-0.5 text-[11px] transition ${
+                          g.won === 1
+                            ? "bg-emerald-500/15 text-emerald-600"
+                            : g.won === 0
+                              ? "bg-slate-500/15 text-slate-400"
+                              : "bg-ink-800 text-slate-500 hover:text-slate-400"
+                        }`}
+                      >
+                        {g.won === 1 ? "✓ 成功" : g.won === 0 ? "未成功" : "未标记"}
+                      </button>
+                    </td>
                   </tr>
                   {open === g.game_no && (
                     <tr key={`${g.game_no}-detail`} className="border-t border-ink-800 bg-ink-900/40">
-                      <td colSpan={8} className="px-4 py-3">
+                      <td colSpan={9} className="px-4 py-3">
                         <div className="flex flex-wrap gap-2">
                           {g.items.map((it, i) => (
                             <span
@@ -155,6 +226,15 @@ export default function RecordsPage() {
           </table>
         </div>
       </Card>
+
+      {profitChartOption && (
+        <Card
+          title="收益走势"
+          desc="蓝色 = 本人竞拍成功，灰色 = 未成功/未标记；点击表格「竞拍」列标记，收益规律仅统计本人竞拍成功的对局"
+        >
+          <Chart option={profitChartOption} height={300} />
+        </Card>
+      )}
 
       {chartOption && (
         <Card title="我的记录：预测 vs 实际" desc="已完成结算的预测误差（虚线为理想一致线）">

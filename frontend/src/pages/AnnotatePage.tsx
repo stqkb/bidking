@@ -49,6 +49,7 @@ export default function AnnotatePage() {
   const [manualValue, setManualValue] = useState("");
   const [manualDrag, setManualDrag] = useState<{ sx: number; sy: number; ex: number; ey: number } | null>(null);
   const [autoClip, setAutoClip] = useState(false);
+  const [won, setWon] = useState(false);  // 本人是否竞拍成功（收益规律统计用）
   const lastClipHash = useRef("");
   const firstPeek = useRef(true);
   const imgRef = useRef<HTMLImageElement>(null);
@@ -410,6 +411,7 @@ export default function AnnotatePage() {
         body: JSON.stringify({
           items: summary.items,
           settlement: summary.settle,
+          won,
         }),
       });
       const j = await r.json();
@@ -440,6 +442,7 @@ export default function AnnotatePage() {
     setNameOverrides({});
     setGridOverrides({});
     setSummary({ items: [], settle: { total_value: null, deal_price: null, profit: null } });
+    setWon(false);
     setSettle(null);
     setAnnotations([]);
     setManualOpen(false);
@@ -786,7 +789,16 @@ export default function AnnotatePage() {
               ＋ 添加红品
             </button>
           </div>
-          <div className="mt-3 flex items-center gap-2">
+          <div className="mt-3 flex flex-wrap items-center gap-3">
+            <label className="flex cursor-pointer items-center gap-2 text-xs text-slate-600">
+              <input
+                type="checkbox"
+                checked={won}
+                onChange={(e) => setWon(e.target.checked)}
+                className="h-4 w-4 rounded border-ink-600"
+              />
+              本人竞拍成功（收益规律仅统计勾选对局）
+            </label>
             <button className="btn-primary !py-2 text-xs" onClick={saveSummary} disabled={summarySaving}>
               {summarySaving ? "保存中…" : "💾 保存本局（并入训练）"}
             </button>

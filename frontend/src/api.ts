@@ -40,6 +40,8 @@ export const api = {
   importCatalog: () => req<{ imported: number }>("POST", "/api/catalog/import", {}),
   catalogDelete: (ids: number[]) => req<{ ok: boolean; deleted?: number; error?: string }>("POST", "/api/catalog/delete", { ids }),
   games: () => req<{ games: GameRecord[] }>("GET", "/api/games"),
+  updateGameWon: (game_no: number, won: boolean) =>
+    req<{ ok: boolean; game_no: number; won: boolean }>("PATCH", `/api/games/${game_no}`, { won }),
   records: () => req<{ records: UserRecord[] }>("GET", "/api/records"),
   createRecord: (body: unknown) => req<{ id: string }>("POST", "/api/records", body),
   updateRecord: (id: string, body: unknown) => req<{ id: string; status: string }>("PATCH", `/api/records/${id}`, body),
