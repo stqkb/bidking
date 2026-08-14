@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api";
 import { Card, Stat } from "../components/Card";
 import type { CatalogItem } from "../types";
@@ -48,6 +48,8 @@ export default function AnnotatePage() {
   const [manualGrid, setManualGrid] = useState("");
   const [manualValue, setManualValue] = useState("");
   const [manualDrag, setManualDrag] = useState<{ sx: number; sy: number; ex: number; ey: number } | null>(null);
+  const [manualThumbs, setManualThumbs] = useState<Record<string, string>>({});  // 藏品名 -> 代表图路径
+  const [manualSort, setManualSort] = useState<"az" | "value_asc" | "value_desc">("az");
   const [autoClip, setAutoClip] = useState(false);
   const [won, setWon] = useState(false);  // 本人是否竞拍成功（收益规律统计用）
   const lastClipHash = useRef("");
@@ -56,6 +58,18 @@ export default function AnnotatePage() {
 
   useEffect(() => {
     api.catalogItems().then((r) => setItems(r.items)).catch(() => {});
+    // 加载每个藏品的代表图（优先原始学习图，无则首张），供手动添加选择界面展示
+    api.visionGallery()
+      .then((g) => {
+        const m: Record<string, string> = {};
+        for (const it of g.items) {
+          const ims = it.images ?? [];
+          const pick = ims.find((x) => !x.variant) ?? ims[0];
+          if (pick) m[it.name] = pick.path;
+        }
+        setManualThumbs(m);
+      })
+      .catch(() => {});
   }, []);
 
   const loadAnno = useCallback(async (p: string) => {
@@ -484,6 +498,24 @@ export default function AnnotatePage() {
   const manualItems = manualGrid
     ? items.filter((it) => it.grid_cells === Number(manualGrid))
     : items;
+  // 手动添加的图片选择器：排序（名称 A-Z / 价值升 / 价值降）
+  const sortedManualItems = useMemo(() => {
+    const arr = [...manualItems];
+    if (manualSort === "az") {
+      arr.sort((a, b) => a.name.localeCompare(b.name, "zh-Hans-CN"));
+    } else if (manualSort === "value_asc") {
+      arr.sort((a, b) => (a.value ?? 0) - (b.value ?? 0));
+    } else {
+      arr.sort((a, b) => (b.value ?? 0) - (a.value ?? 0));
+    }
+    return arr;
+  }, [manualItems, manualSort]);
+
+  const pickManual = (it: CatalogItem) => {
+    setManualName(it.name);
+    setManualGrid(String(it.grid_cells));
+    setManualValue(String(it.value));
+  };
 
   return (
     <div className="space-y-5">
@@ -628,37 +660,26 @@ export default function AnnotatePage() {
             </div>
             {manualOpen && (
               <div className="mt-2 rounded-xl border border-amber-500/30 bg-amber-500/5 p-2.5">
-                <div className="mb-1.5 text-xs text-amber-300">框选漏检的红品图标，然后指定名称：</div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <select
-                    className="input min-w-40 !py-1 text-xs"
-                    value={manualName}
-                    onChange={(e) => {
-                      setManualName(e.target.value);
-                      const it = items.find((x) => x.name === e.target.value);
-                      if (it) {
-                        setManualGrid(String(it.grid_cells));
-                        setManualValue(String(it.value));
-                      }
-                    }}
-                  >
-                    <option value="">— 选择红品 —</option>
-                    {manualItems.map((it) => (
-                      <option key={it.id} value={it.name}>
-                        {it.name}（{it.grid_cells}格 · {fmtMoney(it.value)}）
-                      </option>
-                    ))}
-                  </select>
+                <div className="mb-2 flex flex-wrap items-center gap-2">
                   <input
-                    className="input w-24 !py-1 text-xs"
-                    placeholder="格数"
+                    className="input w-20 !py-1 text-xs"
+                    placeholder="格数筛选"
                     type="number"
                     value={manualGrid}
                     onChange={(e) => setManualGrid(e.target.value)}
                   />
+                  <select
+                    className="input w-32 !py-1 text-xs"
+                    value={manualSort}
+                    onChange={(e) => setManualSort(e.target.value as typeof manualSort)}
+                  >
+                    <option value="az">名称 A-Z</option>
+                    <option value="value_asc">价值 ↑</option>
+                    <option value="value_desc">价值 ↓</option>
+                  </select>
                   <input
                     className="input w-28 !py-1 text-xs"
-                    placeholder="价值"
+                    placeholder="价值(可改)"
                     type="number"
                     value={manualValue}
                     onChange={(e) => setManualValue(e.target.value)}
@@ -667,6 +688,44 @@ export default function AnnotatePage() {
                     保存手动红品
                   </button>
                   {manualBox && <span className="text-[11px] text-slate-400">已框选 ({manualBox[0]},{manualBox[1]})</span>}
+                </div>
+                <div className="mb-1 text-[11px] text-slate-400">
+                  框选漏检红品图标后，点击下方图片选择藏品（共 {sortedManualItems.length} 件）：
+                  {manualName && <span className="ml-1 text-amber-300">已选：{manualName}</span>}
+                </div>
+                <div className="grid max-h-60 grid-cols-3 gap-1.5 overflow-y-auto pr-1 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6">
+                  {sortedManualItems.map((it) => {
+                    const tp = manualThumbs[it.name];
+                    const sel = manualName === it.name;
+                    return (
+                      <button
+                        key={it.id}
+                        onClick={() => pickManual(it)}
+                        className={`flex flex-col items-stretch overflow-hidden rounded-lg border bg-ink-850 text-left transition ${
+                          sel
+                            ? "border-amber-400 ring-1 ring-amber-400/60"
+                            : "border-ink-700 hover:border-ink-500"
+                        }`}
+                      >
+                        <div className="flex h-14 w-full items-center justify-center bg-ink-900">
+                          {tp ? (
+                            <img
+                              src={`/api/vision/uploaded?path=${encodeURIComponent(tp)}`}
+                              alt={it.name}
+                              className="h-full w-full object-contain"
+                              loading="lazy"
+                            />
+                          ) : (
+                            <span className="text-base text-slate-600">{it.name.slice(0, 1)}</span>
+                          )}
+                        </div>
+                        <div className="px-1 py-0.5">
+                          <div className="truncate text-[10px] text-slate-200">{it.name}</div>
+                          <div className="text-[9px] text-slate-500">{it.grid_cells}格 · {fmtMoney(it.value)}</div>
+                        </div>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             )}
