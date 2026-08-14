@@ -9,6 +9,7 @@ from typing import Any
 import openpyxl
 
 from .config import EXTRA_MD_FILES, MD_AGGREGATE, MD_SOURCES, XLSX_SOURCE
+from .core import cache
 from .core.norm import norm_name as _norm_name
 from .db import db, json_dumps
 from .services import matching
@@ -211,6 +212,7 @@ def import_catalog(xlsx_path: Path | None = None) -> int:
             "INSERT INTO catalog_items(name, grid_cells, value, current_value, source) VALUES (?,?,?,?,'excel')",
             items,
         )
+    cache.invalidate_catalog()
     return len(items)
 
 
@@ -248,6 +250,7 @@ def import_games() -> int:
                     json_dumps(items),
                 ),
             )
+    cache.invalidate_games()
     return len(games)
 
 
@@ -327,6 +330,8 @@ def import_extra_games(paths: list[Path] | None = None) -> int:
                 existing.add(no)
                 sigs.add(_game_signature(g))
                 n += 1
+    if n:
+        cache.invalidate_games()
     return n
 
 

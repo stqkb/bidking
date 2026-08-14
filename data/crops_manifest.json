@@ -20843,5 +20843,181 @@
   "source": "learn",
   "variant": true,
   "augmented": true
+ },
+ {
+  "name": "AWM枪械藏品",
+  "grid_cells": 12,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\AWM枪械藏品\\261952009.png",
+  "source": "learn",
+  "variant": false,
+  "augmented": true
+ },
+ {
+  "name": "AWM枪械藏品",
+  "grid_cells": 12,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\AWM枪械藏品\\261952009_v0.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true
+ },
+ {
+  "name": "AWM枪械藏品",
+  "grid_cells": 12,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\AWM枪械藏品\\261952009_v1.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true
+ },
+ {
+  "name": "AWM枪械藏品",
+  "grid_cells": 12,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\AWM枪械藏品\\261952009_v2.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true
+ },
+ {
+  "name": "AWM枪械藏品",
+  "grid_cells": 12,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\AWM枪械藏品\\261952009_v3.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true
+ },
+ {
+  "name": "AWM枪械藏品",
+  "grid_cells": 12,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\AWM枪械藏品\\261952009_v4.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true
+ },
+ {
+  "name": "AWM枪械藏品",
+  "grid_cells": 12,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\AWM枪械藏品\\261952009_v5.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true
+ },
+ {
+  "name": "AWM枪械藏品",
+  "grid_cells": 12,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\AWM枪械藏品\\261952009_v6.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true
+ },
+ {
+  "name": "AWM枪械藏品",
+  "grid_cells": 12,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\AWM枪械藏品\\261952009_v7.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true
+ },
+ {
+  "name": "AWM枪械藏品",
+  "grid_cells": 12,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\AWM枪械藏品\\261952009_v8.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true
+ },
+ {
+  "name": "AWM枪械藏品",
+  "grid_cells": 12,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\AWM枪械藏品\\261952009_v9.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true
+ },
+ {
+  "name": "斯卡奥小金人雕像",
+  "grid_cells": 2,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\斯卡奥小金人雕像\\318049418.png",
+  "source": "learn",
+  "variant": false,
+  "augmented": true
+ },
+ {
+  "name": "斯卡奥小金人雕像",
+  "grid_cells": 2,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\斯卡奥小金人雕像\\318049418_v0.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true
+ },
+ {
+  "name": "斯卡奥小金人雕像",
+  "grid_cells": 2,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\斯卡奥小金人雕像\\318049418_v1.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true
+ },
+ {
+  "name": "斯卡奥小金人雕像",
+  "grid_cells": 2,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\斯卡奥小金人雕像\\318049418_v2.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true
+ },
+ {
+  "name": "斯卡奥小金人雕像",
+  "grid_cells": 2,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\斯卡奥小金人雕像\\318049418_v3.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true
+ },
+ {
+  "name": "斯卡奥小金人雕像",
+  "grid_cells": 2,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\斯卡奥小金人雕像\\318049418_v4.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true
+ },
+ {
+  "name": "斯卡奥小金人雕像",
+  "grid_cells": 2,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\斯卡奥小金人雕像\\318049418_v5.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true
+ },
+ {
+  "name": "斯卡奥小金人雕像",
+  "grid_cells": 2,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\斯卡奥小金人雕像\\318049418_v6.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true
+ },
+ {
+  "name": "斯卡奥小金人雕像",
+  "grid_cells": 2,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\斯卡奥小金人雕像\\318049418_v7.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true
+ },
+ {
+  "name": "斯卡奥小金人雕像",
+  "grid_cells": 2,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\斯卡奥小金人雕像\\318049418_v8.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true
+ },
+ {
+  "name": "斯卡奥小金人雕像",
+  "grid_cells": 2,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\斯卡奥小金人雕像\\318049418_v9.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true
  }
 ]

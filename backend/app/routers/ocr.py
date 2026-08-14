@@ -10,6 +10,7 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse
 
 from .. import ocr as ocr_mod, schemas
+from ..core import cache
 from ..core.bg import bg
 from ..db import db, json_dumps
 from ..services import estimator
@@ -53,8 +54,7 @@ def ocr_save_multi(body: schemas.OcrRecognizeMultiInput) -> dict[str, Any]:
     with db() as conn:
         res = ocr_mod.save_multi_record(conn, body.paths)
     if res.get("saved"):
-        bg.start("ml", estimator.retrain_ml, force=True)
-        bg.start("cnn", estimator.retrain_cnn, force=True)
+        bg.start("train", estimator.retrain_all, force=True)
     return res
 
 
@@ -95,8 +95,8 @@ def ocr_save_summary(body: schemas.SaveSummaryInput) -> dict[str, Any]:
              json_dumps(saved_items)),
         )
     if red_count > 0:
-        bg.start("ml", estimator.retrain_ml, force=True)
-        bg.start("cnn", estimator.retrain_cnn, force=True)
+        bg.start("train", estimator.retrain_all, force=True)
+    cache.invalidate_games()   # 新增了对局记录
     return {
         "ok": True,
         "game_no": game_no,
@@ -113,8 +113,7 @@ def ocr_save_summary(body: schemas.SaveSummaryInput) -> dict[str, Any]:
 def ocr_confirm(task_id: int, body: schemas.OcrConfirmInput) -> dict[str, Any]:
     res = ocr_mod.confirm_task(task_id, body.items, body.settlement)
     if res.get("ok"):
-        bg.start("ml", estimator.retrain_ml, force=True)
-        bg.start("cnn", estimator.retrain_cnn, force=True)
+        bg.start("train", estimator.retrain_all, force=True)
     return res
 
 

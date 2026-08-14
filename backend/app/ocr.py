@@ -17,6 +17,7 @@ from PIL import Image
 from rapidocr_onnxruntime import RapidOCR
 
 from .config import AUCTION_DIR, OCR_FAILED_DIR, OCR_PROCESSED_DIR, SCAN_DIR
+from .core import cache
 from .core.norm import norm_name as _norm_name
 from .db import db, json_dumps
 from .services import matching
@@ -702,6 +703,7 @@ def save_multi_record(conn, image_paths: list[str]) -> dict[str, Any]:
          red_avg, red_value or None, full_value, deal_price, profit,
          json_dumps(saved_items)),
     )
+    cache.invalidate_games()   # 新增对局记录
     return {
         **res,
         "game_no": game_no,
@@ -834,6 +836,7 @@ def confirm_task(task_id: int, items: list[dict[str, Any]],
                 (now, task_id),
             )
             _archive_auction(row["path"], task_id)
+            cache.invalidate_games()   # 新增了对局记录，件数先验/倍率/别名映射失效
             return {"ok": True, "game_no": game_no}
         for it in items:
             name = (it.get("name") or "").strip()
@@ -880,6 +883,7 @@ def confirm_task(task_id: int, items: list[dict[str, Any]],
             shutil.move(str(src), str(dest_dir / src.name))
     except Exception:  # noqa: BLE001
         pass
+    cache.invalidate_catalog()   # 新增/覆盖了图鉴条目，图鉴行与统计缓存失效
     return {"ok": True, "added_catalog": added, "updated_catalog": updated}
 
 

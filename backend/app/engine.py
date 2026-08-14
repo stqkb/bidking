@@ -10,6 +10,7 @@ from typing import Any
 import numpy as np
 
 from .config import DEFAULT_FULL_RATIO, DEFAULT_MARGIN, DEFAULT_PRICES, MAX_RED_COUNT, MAX_RED_GRIDS, BID_UNCERTAINTY_THRESHOLD
+from .core import cache
 
 SIZE_FALLBACK = [1, 2, 3, 4, 6, 8, 9, 12, 15, 16]
 # 已知红品校准强度：raw 系数向 1.0 收敛的比例。
@@ -18,47 +19,59 @@ CALIB_BLEND = 0.0
 
 
 def get_catalog_stats(conn) -> dict[int, dict[str, Any]]:
-    """按格数统计图鉴：count/mean/median/p10/p90/min/max，并保留数值池。"""
-    rows = conn.execute(
-        "SELECT grid_cells, value FROM catalog_items WHERE value > 0"
-    ).fetchall()
-    by_grid: dict[int, list[float]] = {}
-    for r in rows:
-        by_grid.setdefault(int(r["grid_cells"]), []).append(float(r["value"]))
-    stats: dict[int, dict[str, Any]] = {}
-    for g, vals in by_grid.items():
-        arr = np.asarray(vals, dtype=float)
-        stats[g] = {
-            "count": len(arr),
-            "mean": float(arr.mean()),
-            "median": float(np.median(arr)),
-            "p10": float(np.percentile(arr, 10)),
-            "p90": float(np.percentile(arr, 90)),
-            "min": float(arr.min()),
-            "max": float(arr.max()),
-            "pool": arr,
-        }
-    return stats
+    """按格数统计图鉴：count/mean/median/p10/p90/min/max，并保留数值池。
+
+    结果缓存在内存（catalog_items 变化后由 cache.invalidate_catalog() 失效）。
+    """
+    def _load() -> dict[int, dict[str, Any]]:
+        rows = conn.execute(
+            "SELECT grid_cells, value FROM catalog_items WHERE value > 0"
+        ).fetchall()
+        by_grid: dict[int, list[float]] = {}
+        for r in rows:
+            by_grid.setdefault(int(r["grid_cells"]), []).append(float(r["value"]))
+        stats: dict[int, dict[str, Any]] = {}
+        for g, vals in by_grid.items():
+            arr = np.asarray(vals, dtype=float)
+            stats[g] = {
+                "count": len(arr),
+                "mean": float(arr.mean()),
+                "median": float(np.median(arr)),
+                "p10": float(np.percentile(arr, 10)),
+                "p90": float(np.percentile(arr, 90)),
+                "min": float(arr.min()),
+                "max": float(arr.max()),
+                "pool": arr,
+            }
+        return stats
+
+    return cache._cache.get(cache.KEY_CATALOG_STATS, _load)
 
 
 def get_blended_stats(conn) -> dict[int, dict[str, Any]]:
-    """以图鉴(Excel)价格为权威来源统计各格数；均值用 10% 截尾均值抗异常值。"""
-    cat = get_catalog_stats(conn)
-    out: dict[int, dict[str, Any]] = {}
-    for g, c in cat.items():
-        pool = _trimmed_pool(np.asarray(c["pool"], dtype=float))
-        out[g] = {
-            "count": c["count"],
-            "emp_n": c["count"],
-            "mean": float(pool.mean()),
-            "median": float(np.median(pool)),
-            "p10": float(np.percentile(pool, 10)),
-            "p90": float(np.percentile(pool, 90)),
-            "min": float(pool.min()),
-            "max": float(pool.max()),
-            "pool": pool,
-        }
-    return out
+    """以图鉴(Excel)价格为权威来源统计各格数；均值用 10% 截尾均值抗异常值。
+
+    结果缓存在内存（catalog_items 变化后由 cache.invalidate_catalog() 失效）。
+    """
+    def _load() -> dict[int, dict[str, Any]]:
+        cat = get_catalog_stats(conn)
+        out: dict[int, dict[str, Any]] = {}
+        for g, c in cat.items():
+            pool = _trimmed_pool(np.asarray(c["pool"], dtype=float))
+            out[g] = {
+                "count": c["count"],
+                "emp_n": c["count"],
+                "mean": float(pool.mean()),
+                "median": float(np.median(pool)),
+                "p10": float(np.percentile(pool, 10)),
+                "p90": float(np.percentile(pool, 90)),
+                "min": float(pool.min()),
+                "max": float(pool.max()),
+                "pool": pool,
+            }
+        return out
+
+    return cache._cache.get(cache.KEY_BLENDED_STATS, _load)
 
 
 def _trimmed_pool(arr: np.ndarray, trim: float = 0.1) -> np.ndarray:
@@ -71,26 +84,38 @@ def _trimmed_pool(arr: np.ndarray, trim: float = 0.1) -> np.ndarray:
 
 
 def get_full_ratio(conn) -> float:
-    """全场总价值 / 红品价值的实测均值，缺数据时用兜底 1.36。"""
-    rows = conn.execute(
-        "SELECT full_value, red_value FROM game_records WHERE full_value > 0 AND red_value > 0"
-    ).fetchall()
-    if not rows:
-        return DEFAULT_FULL_RATIO
-    ratios = [float(r["full_value"]) / float(r["red_value"]) for r in rows]
-    return float(np.mean(ratios))
+    """全场总价值 / 红品价值的实测均值，缺数据时用兜底 1.36。
+
+    结果缓存在内存（game_records 变化后由 cache.invalidate_games() 失效）。
+    """
+    def _load() -> float:
+        rows = conn.execute(
+            "SELECT full_value, red_value FROM game_records WHERE full_value > 0 AND red_value > 0"
+        ).fetchall()
+        if not rows:
+            return DEFAULT_FULL_RATIO
+        ratios = [float(r["full_value"]) / float(r["red_value"]) for r in rows]
+        return float(np.mean(ratios))
+
+    return cache._cache.get(cache.KEY_FULL_RATIO, _load)
 
 
 def get_count_prior(conn) -> dict[int, float]:
-    """红品件数的经验分布（31 局直方图归一化）。"""
-    rows = conn.execute(
-        "SELECT red_count FROM game_records WHERE red_count > 0"
-    ).fetchall()
-    if not rows:
-        return {}
-    c = Counter(int(r["red_count"]) for r in rows)
-    total = sum(c.values())
-    return {k: v / total for k, v in c.items()}
+    """红品件数的经验分布（31 局直方图归一化）。
+
+    结果缓存在内存（game_records 变化后由 cache.invalidate_games() 失效）。
+    """
+    def _load() -> dict[int, float]:
+        rows = conn.execute(
+            "SELECT red_count FROM game_records WHERE red_count > 0"
+        ).fetchall()
+        if not rows:
+            return {}
+        c = Counter(int(r["red_count"]) for r in rows)
+        total = sum(c.values())
+        return {k: v / total for k, v in c.items()}
+
+    return cache._cache.get(cache.KEY_COUNT_PRIOR, _load)
 
 
 def find_candidates(

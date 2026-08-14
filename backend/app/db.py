@@ -11,9 +11,13 @@ from .config import DB_PATH, ensure_dirs
 
 def get_conn() -> sqlite3.Connection:
     ensure_dirs()
-    conn = sqlite3.connect(str(DB_PATH))
+    conn = sqlite3.connect(str(DB_PATH), timeout=10)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
+    # WAL 模式：允许一个写者 + 多个读者并发，减少后台训练/请求间的锁竞争
+    conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute("PRAGMA synchronous=NORMAL")
+    conn.execute("PRAGMA busy_timeout=5000")
     return conn
 
 

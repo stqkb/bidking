@@ -11,6 +11,7 @@ from fastapi import APIRouter, HTTPException
 
 from .. import engine, schemas, vision
 from ..config import XLSX_SOURCE
+from ..core import cache
 from ..core.bg import bg
 from ..db import db, json_dumps
 from ..importers import import_catalog
@@ -86,8 +87,8 @@ def catalog_delete(body: schemas.CatalogDeleteInput) -> dict[str, Any]:
     if names:
         vision.delete_crops_for_names(names)
     if deleted > 0:
-        bg.start("ml", estimator.retrain_ml, force=True)
-        bg.start("cnn", estimator.retrain_cnn, force=True)
+        cache.invalidate_catalog()
+        bg.start("train", estimator.retrain_all, force=True)
     return {"ok": True, "deleted": deleted}
 
 

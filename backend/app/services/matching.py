@@ -12,31 +12,52 @@ from __future__ import annotations
 import json
 from typing import Any
 
+from ..core import cache
 from ..core.norm import norm_name
 
 
+def _get_catalog_rows(conn) -> list[dict[str, Any]]:
+    """catalog_items 全表（name/grid_cells/value/current_value），内存缓存。
+
+    写操作（导入 Excel / 删除藏品 / OCR 确认新增或覆盖价格）后需调
+    cache.invalidate_catalog() 失效，见 core/cache.py 约定。
+    """
+    def _load() -> list[dict[str, Any]]:
+        return [dict(r) for r in conn.execute(
+            "SELECT name, grid_cells, value, current_value FROM catalog_items"
+        ).fetchall()]
+
+    return cache._cache.get(cache.KEY_CATALOG_ROWS, _load)
+
+
 def _build_alias_map(conn) -> dict[str, str]:
-    """历史对局里的「游戏显示名/对应文档名 -> 图鉴名」别名映射。"""
-    cat: dict[str, str] = {}
-    for r in conn.execute("SELECT name FROM catalog_items").fetchall():
-        cat.setdefault(norm_name(r["name"]), r["name"])
-    alias: dict[str, str] = {}
-    for r in conn.execute("SELECT items_json FROM game_records").fetchall():
-        for it in json.loads(r["items_json"] or "[]"):
-            nm = it.get("name")
-            doc = it.get("doc_name")
-            target = None
-            for key in (doc, nm):
-                nk = norm_name(key)
-                if nk and nk in cat:
-                    target = cat[nk]
-                    break
-            if target:
-                if nm:
-                    alias.setdefault(norm_name(nm), target)
-                if doc:
-                    alias.setdefault(norm_name(doc), target)
-    return alias
+    """历史对局里的「游戏显示名/对应文档名 -> 图鉴名」别名映射。
+
+    依赖 game_records（items_json），缓存后随 invalidate_games() 失效。
+    """
+    def _load() -> dict[str, str]:
+        cat: dict[str, str] = {}
+        for r in conn.execute("SELECT name FROM catalog_items").fetchall():
+            cat.setdefault(norm_name(r["name"]), r["name"])
+        alias: dict[str, str] = {}
+        for r in conn.execute("SELECT items_json FROM game_records").fetchall():
+            for it in json.loads(r["items_json"] or "[]"):
+                nm = it.get("name")
+                doc = it.get("doc_name")
+                target = None
+                for key in (doc, nm):
+                    nk = norm_name(key)
+                    if nk and nk in cat:
+                        target = cat[nk]
+                        break
+                if target:
+                    if nm:
+                        alias.setdefault(norm_name(nm), target)
+                    if doc:
+                        alias.setdefault(norm_name(doc), target)
+        return alias
+
+    return cache._cache.get(cache.KEY_ALIAS_MAP, _load)
 
 
 def match_by_name(conn, name: str) -> list[dict[str, Any]]:
@@ -44,9 +65,7 @@ def match_by_name(conn, name: str) -> list[dict[str, Any]]:
 
     原名 ocr._match_by_name。供 OCR 板面识别、图鉴联想使用。
     """
-    rows = conn.execute(
-        "SELECT name, grid_cells, value, current_value FROM catalog_items"
-    ).fetchall()
+    rows = _get_catalog_rows(conn)
     nn = norm_name(name)
     alias_target = _build_alias_map(conn).get(nn)
     cands: list[dict[str, Any]] = []
@@ -87,9 +106,7 @@ def match_catalog(conn, name: str, price: float, cells: int) -> list[dict[str, A
     原名 ocr._match_catalog。规则是 match_by_name 的超集：叠加格数惩罚与价格加分，
     且带「纯价格兜底」回退分支。
     """
-    rows = conn.execute(
-        "SELECT name, grid_cells, value, current_value FROM catalog_items"
-    ).fetchall()
+    rows = _get_catalog_rows(conn)
     nn = norm_name(name)
     alias_target = _build_alias_map(conn).get(nn)
     candidates: list[dict[str, Any]] = []
@@ -215,11 +232,11 @@ def identify_by_grid(
 def catalog_value(conn, name: str) -> float | None:
     """按名称查图鉴当前值（交易行价 current_value，否则系统价 value）。
 
-    原名 main._catalog_value；调用方需自行持有 conn。
+    原名 main._catalog_value；调用方需自行持有 conn。基于内存缓存的行过滤，
+    不重复查库。
     """
-    row = conn.execute(
-        "SELECT value, current_value FROM catalog_items WHERE name=?", (name,)
-    ).fetchone()
-    if row is None:
-        return None
-    return float(row["current_value"] or row["value"] or 0)
+    rows = _get_catalog_rows(conn)
+    for r in rows:
+        if r["name"] == name:
+            return float(r["current_value"] or r["value"] or 0)
+    return None

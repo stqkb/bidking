@@ -125,3 +125,13 @@ def retrain_cnn() -> None:
     with db() as conn:
         cnn_mod.train(conn)
     bg.mark_done("cnn")
+
+
+def retrain_all() -> None:
+    """顺序执行 ML → CNN 重训（单个后台线程）。
+
+    原实现对局确认后同时 start ml 与 cnn 两个后台线程，会竞争 CPU 与
+    数据库连接；改为按序执行，由调用方注册为单一任务「train」。
+    """
+    retrain_ml()
+    retrain_cnn()
