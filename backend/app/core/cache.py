@@ -18,6 +18,11 @@ class _Cache:
         self._lock = threading.RLock()
         self._slots: dict[str, Any] = {}
 
+    def set(self, key: str, val: Any) -> None:
+        """直接写入缓存（如校准系数等派生结果）。"""
+        with self._lock:
+            self._slots[key] = val
+
     def get(self, key: str, loader: Callable[[], T]) -> T:
         """命中直接返回；未命中持锁执行 loader 填充并返回。"""
         with self._lock:
@@ -47,6 +52,7 @@ KEY_CATALOG_STATS = "catalog_stats"    # 按格数统计（估值引擎用）
 KEY_BLENDED_STATS = "blended_stats"    # 截尾均值统计（估值引擎用）
 KEY_COUNT_PRIOR = "count_prior"        # 红品件数先验（估值引擎用）
 KEY_FULL_RATIO = "full_ratio"          # 全场/红品价值倍率（估值引擎用）
+KEY_CALIB = "calibration"              # 历史校准系数（红品/全场，估值引擎用）
 
 
 def invalidate_catalog() -> None:
@@ -56,7 +62,7 @@ def invalidate_catalog() -> None:
 
 def invalidate_games() -> None:
     """对局数据变化后调用：导入对局、确认归档、保存汇总。"""
-    _cache.invalidate(KEY_ALIAS_MAP, KEY_COUNT_PRIOR, KEY_FULL_RATIO)
+    _cache.invalidate(KEY_ALIAS_MAP, KEY_COUNT_PRIOR, KEY_FULL_RATIO, KEY_CALIB)
 
 
 def invalidate_all() -> None:

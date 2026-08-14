@@ -107,55 +107,34 @@ def games() -> dict[str, Any]:
 
 @router.get("/api/games/accuracy")
 def game_accuracy() -> dict[str, Any]:
-    """估值准确率回测：每局用「平均格数 + 随机一件红品」构造输入走估值引擎，
-    预测全场 / 实际全场 = 准确率（ratio%）。红品随机选择以局号为种子，保证可复现。
-    多线程并行回测（估值引擎为 numpy 计算，线程可并行加速）。"""
-    import random
-    from concurrent.futures import ThreadPoolExecutor
-
+    """估值准确率回测：每局用「平均格数 + 随机一件红品」构造输入走规则引擎，
+    预测×校准系数后 / 实际 = 准确率（ratio%）。红品随机以局号为种子保证可复现。
+    校准系数由 compute_calibration 基于全部历史对局计算（中位数比值，按均格分桶），
+    与估值引擎 estimate 应用同一套系数，保证回测与真实估值口径一致。"""
     with db(readonly=True) as conn:
-        rows = conn.execute(
-            "SELECT game_no, red_avg, red_count, full_value, items_json "
-            "FROM game_records ORDER BY game_no"
-        ).fetchall()
-
-    def _backtest(r) -> dict[str, Any] | None:
-        if not r["red_avg"] or not r["full_value"]:
-            return None
-        items = json.loads(r["items_json"] or "[]")
-        if not items:
-            return None
-        rng = random.Random(int(r["game_no"]))
-        it = rng.choice(items)
-        known = {
-            "name": it.get("name", ""),
-            "grid_cells": int(it.get("grid_cells") or 0),
-            "value": float(it.get("trade_price") or it.get("sys_price") or 0),
-        }
-        try:
-            est = estimator.estimate({
-                "red_avg": float(r["red_avg"]),
-                "red_count": int(r["red_count"]) if r["red_count"] else None,
-                "known_items": [known],
+        calib, detail = estimator.compute_calibration(conn)
+    buckets = calib.get("avg_buckets") or {}
+    global_k = float(calib.get("k_full", 1.0))
+    out: list[dict[str, Any]] = []
+    for d in detail:
+        bk = estimator._avg_bucket(float(d["red_avg"]))
+        k = float(buckets.get(bk, global_k))
+        pred = d["rule_full"] * k
+        actual = d["actual_full"]
+        if actual > 0:
+            out.append({
+                "game_no": d["game_no"],
+                "red_avg": d["red_avg"],
+                "item": d["item"],
+                "pred": pred,
+                "actual": actual,
+                "ratio": round(actual / pred * 100, 1),
             })
-            pred = est.get("full", {}).get("ev")
-        except Exception:  # noqa: BLE001
-            return None
-        actual = float(r["full_value"])
-        if not pred or actual <= 0:
-            return None
-        return {
-            "game_no": int(r["game_no"]),
-            "red_avg": float(r["red_avg"]),
-            "item": known["name"],
-            "pred": float(pred),
-            "actual": actual,
-            "ratio": round(float(pred) / actual * 100, 1),
-        }
-
-    with ThreadPoolExecutor(max_workers=min(4, max(1, len(rows)))) as ex:
-        out = [x for x in ex.map(_backtest, rows) if x is not None]
-    return {"accuracy": out}
+    return {
+        "accuracy": out,
+        "calibration": {k: round(float(v), 4) for k, v in calib.items() if k in ("k_red", "k_full")},
+        "n": calib.get("n", 0),
+    }
 
 
 @router.patch("/api/games/{game_no}")
