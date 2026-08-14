@@ -44,6 +44,8 @@ export const api = {
     req<{ ok: boolean; game_no: number; won: boolean }>("PATCH", `/api/games/${game_no}`, { won }),
   updateGamePrices: (game_no: number, body: { total_value?: number | null; deal_price?: number | null; profit?: number | null }) =>
     req<{ ok: boolean; game_no: number; won: number | null; profit_ok: number | null }>("PATCH", `/api/games/${game_no}`, body),
+  deleteGame: (game_no: number) =>
+    req<{ ok: boolean; deleted: number; games: number }>("DELETE", `/api/games/${game_no}`),
   records: () => req<{ records: UserRecord[] }>("GET", "/api/records"),
   createRecord: (body: unknown) => req<{ id: string }>("POST", "/api/records", body),
   updateRecord: (id: string, body: unknown) => req<{ id: string; status: string }>("PATCH", `/api/records/${id}`, body),

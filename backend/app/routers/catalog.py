@@ -136,6 +136,37 @@ def game_update(game_no: int, body: schemas.GamePatchInput) -> dict[str, Any]:
     return {"ok": True, "game_no": game_no, "won": won, "profit_ok": profit_ok}
 
 
+@router.delete("/api/games/{game_no}")
+def game_delete(game_no: int) -> dict[str, Any]:
+    """删除一条历史对局，并把剩余对局重排为连续 1..N（避免局号断档）。"""
+    with db() as conn:
+        cur = conn.execute("DELETE FROM game_records WHERE game_no=?", (game_no,))
+        if cur.rowcount == 0:
+            raise HTTPException(status_code=404, detail="对局不存在")
+        # 两阶段 UPDATE：先映射到负数，再回填 1..N，避免主键冲突
+        rows = [r[0] for r in conn.execute(
+            "SELECT game_no FROM game_records ORDER BY game_no"
+        ).fetchall()]
+        for i, g in enumerate(rows):
+            conn.execute(
+                "UPDATE game_records SET game_no=? WHERE game_no=?", (-(i + 1), g)
+            )
+        for i in range(len(rows)):
+            conn.execute(
+                "UPDATE game_records SET game_no=? WHERE game_no=?", (i + 1, -(i + 1))
+            )
+        try:
+            conn.execute(
+                "UPDATE sqlite_sequence SET seq=? WHERE name='game_records'",
+                (len(rows),),
+            )
+        except Exception:  # noqa: BLE001
+            pass
+        n = len(rows)
+    cache.invalidate_games()
+    return {"ok": True, "deleted": game_no, "games": n}
+
+
 @router.get("/api/records")
 def records() -> dict[str, Any]:
     with db() as conn:

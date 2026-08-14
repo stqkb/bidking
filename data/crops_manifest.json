@@ -21899,5 +21899,357 @@
   "source": "learn",
   "variant": true,
   "augmented": true
+ },
+ {
+  "name": "百代唱片",
+  "grid_cells": 9,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\百代唱片\\232025866.png",
+  "source": "learn",
+  "variant": false,
+  "augmented": true
+ },
+ {
+  "name": "百代唱片",
+  "grid_cells": 9,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\百代唱片\\232025866_v0.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true
+ },
+ {
+  "name": "百代唱片",
+  "grid_cells": 9,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\百代唱片\\232025866_v1.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true
+ },
+ {
+  "name": "百代唱片",
+  "grid_cells": 9,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\百代唱片\\232025866_v2.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true
+ },
+ {
+  "name": "百代唱片",
+  "grid_cells": 9,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\百代唱片\\232025866_v3.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true
+ },
+ {
+  "name": "百代唱片",
+  "grid_cells": 9,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\百代唱片\\232025866_v4.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true
+ },
+ {
+  "name": "百代唱片",
+  "grid_cells": 9,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\百代唱片\\232025866_v5.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true
+ },
+ {
+  "name": "百代唱片",
+  "grid_cells": 9,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\百代唱片\\232025866_v6.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true
+ },
+ {
+  "name": "百代唱片",
+  "grid_cells": 9,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\百代唱片\\232025866_v7.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true
+ },
+ {
+  "name": "百代唱片",
+  "grid_cells": 9,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\百代唱片\\232025866_v8.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true
+ },
+ {
+  "name": "百代唱片",
+  "grid_cells": 9,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\百代唱片\\232025866_v9.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true
+ },
+ {
+  "name": "名车轮胎",
+  "grid_cells": 4,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\名车轮胎\\359650159.png",
+  "source": "learn",
+  "variant": false,
+  "augmented": true
+ },
+ {
+  "name": "名车轮胎",
+  "grid_cells": 4,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\名车轮胎\\359650159_v0.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true
+ },
+ {
+  "name": "名车轮胎",
+  "grid_cells": 4,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\名车轮胎\\359650159_v1.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true
+ },
+ {
+  "name": "名车轮胎",
+  "grid_cells": 4,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\名车轮胎\\359650159_v2.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true
+ },
+ {
+  "name": "名车轮胎",
+  "grid_cells": 4,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\名车轮胎\\359650159_v3.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true
+ },
+ {
+  "name": "名车轮胎",
+  "grid_cells": 4,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\名车轮胎\\359650159_v4.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true
+ },
+ {
+  "name": "名车轮胎",
+  "grid_cells": 4,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\名车轮胎\\359650159_v5.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true
+ },
+ {
+  "name": "名车轮胎",
+  "grid_cells": 4,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\名车轮胎\\359650159_v6.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true
+ },
+ {
+  "name": "名车轮胎",
+  "grid_cells": 4,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\名车轮胎\\359650159_v7.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true
+ },
+ {
+  "name": "名车轮胎",
+  "grid_cells": 4,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\名车轮胎\\359650159_v8.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true
+ },
+ {
+  "name": "名车轮胎",
+  "grid_cells": 4,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\名车轮胎\\359650159_v9.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true
+ },
+ {
+  "name": "曜变天目盏",
+  "grid_cells": 1,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\曜变天目盏\\210694041.png",
+  "source": "learn",
+  "variant": false,
+  "augmented": true
+ },
+ {
+  "name": "曜变天目盏",
+  "grid_cells": 1,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\曜变天目盏\\210694041_v0.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true
+ },
+ {
+  "name": "曜变天目盏",
+  "grid_cells": 1,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\曜变天目盏\\210694041_v1.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true
+ },
+ {
+  "name": "曜变天目盏",
+  "grid_cells": 1,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\曜变天目盏\\210694041_v2.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true
+ },
+ {
+  "name": "曜变天目盏",
+  "grid_cells": 1,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\曜变天目盏\\210694041_v3.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true
+ },
+ {
+  "name": "曜变天目盏",
+  "grid_cells": 1,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\曜变天目盏\\210694041_v4.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true
+ },
+ {
+  "name": "曜变天目盏",
+  "grid_cells": 1,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\曜变天目盏\\210694041_v5.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true
+ },
+ {
+  "name": "曜变天目盏",
+  "grid_cells": 1,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\曜变天目盏\\210694041_v6.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true
+ },
+ {
+  "name": "曜变天目盏",
+  "grid_cells": 1,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\曜变天目盏\\210694041_v7.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true
+ },
+ {
+  "name": "曜变天目盏",
+  "grid_cells": 1,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\曜变天目盏\\210694041_v8.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true
+ },
+ {
+  "name": "曜变天目盏",
+  "grid_cells": 1,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\曜变天目盏\\210694041_v9.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true
+ },
+ {
+  "name": "蓝锥矿晶体",
+  "grid_cells": 1,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\蓝锥矿晶体\\169340596.png",
+  "source": "learn",
+  "variant": false,
+  "augmented": true
+ },
+ {
+  "name": "蓝锥矿晶体",
+  "grid_cells": 1,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\蓝锥矿晶体\\169340596_v0.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true
+ },
+ {
+  "name": "蓝锥矿晶体",
+  "grid_cells": 1,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\蓝锥矿晶体\\169340596_v1.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true
+ },
+ {
+  "name": "蓝锥矿晶体",
+  "grid_cells": 1,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\蓝锥矿晶体\\169340596_v2.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true
+ },
+ {
+  "name": "蓝锥矿晶体",
+  "grid_cells": 1,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\蓝锥矿晶体\\169340596_v3.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true
+ },
+ {
+  "name": "蓝锥矿晶体",
+  "grid_cells": 1,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\蓝锥矿晶体\\169340596_v4.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true
+ },
+ {
+  "name": "蓝锥矿晶体",
+  "grid_cells": 1,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\蓝锥矿晶体\\169340596_v5.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true
+ },
+ {
+  "name": "蓝锥矿晶体",
+  "grid_cells": 1,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\蓝锥矿晶体\\169340596_v6.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true
+ },
+ {
+  "name": "蓝锥矿晶体",
+  "grid_cells": 1,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\蓝锥矿晶体\\169340596_v7.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true
+ },
+ {
+  "name": "蓝锥矿晶体",
+  "grid_cells": 1,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\蓝锥矿晶体\\169340596_v8.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true
+ },
+ {
+  "name": "蓝锥矿晶体",
+  "grid_cells": 1,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\蓝锥矿晶体\\169340596_v9.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true
  }
 ]

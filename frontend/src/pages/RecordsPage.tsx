@@ -21,6 +21,7 @@ export default function RecordsPage() {
     deal_price: "",
     profit: "",
   });
+  const [delConfirm, setDelConfirm] = useState<number | null>(null);
 
   // 历史对局排序与过滤
   const filteredGames = useMemo(() => {
@@ -98,6 +99,15 @@ export default function RecordsPage() {
     setEditGame(null);
     setMsg("已保存，收益已重新核验");
     setTimeout(() => setMsg(""), 3000);
+    await load();
+  };
+
+  const removeGame = async (g: GameRecord) => {
+    await api.deleteGame(g.game_no);
+    setDelConfirm(null);
+    setOpen(null);
+    setMsg(`已删除局 ${g.game_no}，剩余对局已重新连续编号`);
+    setTimeout(() => setMsg(""), 4000);
     await load();
   };
 
@@ -285,7 +295,8 @@ export default function RecordsPage() {
                 <th className="py-2 pr-3">全场总价值</th>
                 <th className="py-2 pr-3">成交价</th>
                 <th className="py-2 pr-3">盈亏</th>
-                <th className="py-2">竞拍</th>
+                <th className="py-2 pr-3">竞拍</th>
+                <th className="py-2">删除</th>
               </tr>
             </thead>
             <tbody className="tabular-nums">
@@ -351,10 +362,37 @@ export default function RecordsPage() {
                         {g.won === 1 ? "✓ 成功" : g.won === 0 ? "未成功" : "未标记"}
                       </button>
                     </td>
+                    <td className="py-2">
+                      {delConfirm === g.game_no ? (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            removeGame(g);
+                          }}
+                          className="rounded bg-rose-500/20 px-1.5 py-0.5 text-[11px] text-rose-300 hover:bg-rose-500/30"
+                        >
+                          确认删除？
+                        </button>
+                      ) : (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setDelConfirm(g.game_no);
+                            setTimeout(() => {
+                              setDelConfirm((c) => (c === g.game_no ? null : c));
+                            }, 4000);
+                          }}
+                          title="删除该局（剩余局号将重新连续编号）"
+                          className="rounded px-1.5 py-0.5 text-[11px] text-slate-400 hover:bg-rose-500/10 hover:text-rose-400"
+                        >
+                          🗑
+                        </button>
+                      )}
+                    </td>
                   </tr>
                   {open === g.game_no && (
                     <tr key={`${g.game_no}-detail`} className="border-t border-ink-800 bg-ink-900/40">
-                      <td colSpan={9} className="px-4 py-3">
+                      <td colSpan={10} className="px-4 py-3">
                         <div className="flex flex-wrap gap-2">
                           {g.items.map((it, i) => (
                             <span
