@@ -22,6 +22,17 @@ export default function RecordsPage() {
     profit: "",
   });
   const [delConfirm, setDelConfirm] = useState<number | null>(null);
+  const [accuracy, setAccuracy] = useState<{ game_no: number; red_avg: number; item: string; pred: number; actual: number; ratio: number }[]>([]);
+  const [accLoading, setAccLoading] = useState(false);
+
+  useEffect(() => {
+    // 估值准确率回测（后端计算较慢，单独加载）
+    setAccLoading(true);
+    api.gameAccuracy()
+      .then((r) => setAccuracy(r.accuracy))
+      .catch(() => {})
+      .finally(() => setAccLoading(false));
+  }, []);
 
   // 历史对局排序与过滤
   const filteredGames = useMemo(() => {
@@ -257,6 +268,56 @@ export default function RecordsPage() {
     };
   })();
 
+  // 估值准确率：预测/实际 ×100%，绿=90-99%，黄=80-89%/101-110%，红=其他
+  const accColor = (r: number) => {
+    if (r >= 90 && r <= 99) return "var(--success)";
+    if ((r >= 80 && r < 90) || (r > 99 && r <= 110)) return "var(--warning)";
+    return "var(--danger)";
+  };
+  const accuracyChartOption = (() => {
+    if (accuracy.length === 0) return null;
+    return {
+      tooltip: {
+        trigger: "item",
+        formatter: (p: any) => {
+          const a = accuracy[p.dataIndex];
+          return `局 ${a.game_no}：预测 ${fmtWan(a.pred)} / 实际 ${fmtWan(a.actual)}<br/>准确率 ${a.ratio}%<br/>均格 ${a.red_avg} · 样本「${a.item}」`;
+        },
+      },
+      grid: { left: 64, right: 20, top: 20, bottom: 40 },
+      xAxis: { type: "value", name: "局号", axisLabel: { color: "#94a3b8" }, splitLine: { lineStyle: { color: "#1e293b" } } },
+      yAxis: {
+        type: "value",
+        name: "准确率%",
+        min: 0,
+        max: 150,
+        axisLabel: { color: "#94a3b8", formatter: "{value}%" },
+        splitLine: { lineStyle: { color: "#1e293b" } },
+      },
+      series: [
+        {
+          type: "bar",
+          barWidth: "55%",
+          data: accuracy.map((a) => ({
+            value: [a.game_no, a.ratio],
+            itemStyle: { color: accColor(a.ratio) },
+          })),
+          markLine: {
+            silent: true,
+            symbol: "none",
+            label: { color: "#5a5860", fontSize: 10 },
+            lineStyle: { color: "#3a3a44", type: "dashed" },
+            data: [
+              { yAxis: 100, label: { formatter: "实际 100%" } },
+              { yAxis: 90, label: { formatter: "90%" } },
+              { yAxis: 99, label: { formatter: "99%" } },
+            ],
+          },
+        },
+      ],
+    };
+  })();
+
   return (
     <div className="space-y-5">
       {msg && (
@@ -289,6 +350,18 @@ export default function RecordsPage() {
             </div>
           )}
         </Card>
+      )}
+
+      {accLoading ? (
+        <Card title="估值准确率" desc="每局用均格 + 随机一件红品估值，预测 / 实际 = 准确率">
+          <div className="py-10 text-center text-sm text-slate-500">正在回测估值准确率（约数秒）…</div>
+        </Card>
+      ) : (
+        accuracyChartOption && (
+          <Card title="估值准确率" desc="柱高 = 预测/实际 ×100%；绿 = 90-99%，黄 = 80-89% / 101-110%，红 = 其他">
+            <Chart option={accuracyChartOption} height={280} />
+          </Card>
+        )
       )}
 
       <Card title={`历史对局（${games.length} 局）`} desc="来自你的实战记录，点击对局展开红品明细">

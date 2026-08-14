@@ -104,6 +104,53 @@ def games() -> dict[str, Any]:
     return {"games": out}
 
 
+@router.get("/api/games/accuracy")
+def game_accuracy() -> dict[str, Any]:
+    """估值准确率回测：每局用「平均格数 + 随机一件红品」构造输入走估值引擎，
+    预测全场 / 实际全场 = 准确率（ratio%）。红品随机选择以局号为种子，保证可复现。"""
+    import random
+
+    with db(readonly=True) as conn:
+        rows = conn.execute(
+            "SELECT game_no, red_avg, red_count, full_value, items_json "
+            "FROM game_records ORDER BY game_no"
+        ).fetchall()
+    out: list[dict[str, Any]] = []
+    for r in rows:
+        if not r["red_avg"] or not r["full_value"]:
+            continue
+        items = json.loads(r["items_json"] or "[]")
+        if not items:
+            continue
+        rng = random.Random(int(r["game_no"]))
+        it = rng.choice(items)
+        known = {
+            "name": it.get("name", ""),
+            "grid_cells": int(it.get("grid_cells") or 0),
+            "value": float(it.get("trade_price") or it.get("sys_price") or 0),
+        }
+        try:
+            est = estimator.estimate({
+                "red_avg": float(r["red_avg"]),
+                "red_count": int(r["red_count"]) if r["red_count"] else None,
+                "known_items": [known],
+            })
+            pred = est.get("full", {}).get("ev")
+        except Exception:  # noqa: BLE001
+            continue
+        actual = float(r["full_value"])
+        if pred and actual > 0:
+            out.append({
+                "game_no": int(r["game_no"]),
+                "red_avg": float(r["red_avg"]),
+                "item": known["name"],
+                "pred": float(pred),
+                "actual": actual,
+                "ratio": round(float(pred) / actual * 100, 1),
+            })
+    return {"accuracy": out}
+
+
 @router.patch("/api/games/{game_no}")
 def game_update(game_no: int, body: schemas.GamePatchInput) -> dict[str, Any]:
     """更新对局：本人竞拍成功标记（won）与/或价格字段（总价值/成交价/收益）。
