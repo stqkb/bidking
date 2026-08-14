@@ -62,12 +62,15 @@ export const api = {
   updateRecord: (id: string, body: unknown) => req<{ id: string; status: string }>("PATCH", `/api/records/${id}`, body),
   deleteRecord: (id: string) => req<{ ok: boolean }>("DELETE", `/api/records/${id}`),
   estimate: (input: EstimateInput) => req<EstimateResp>("POST", "/api/estimate", input),
+  quickArchive: (body: { input: EstimateInput; result: EstimateResp }) =>
+    req<{ ok: boolean; game_no: number }>("POST", "/api/quick-archive", body),
   modelStatus: () => req<ModelStatus>("GET", "/api/model/status"),
   retrain: () => req<{ started: boolean }>("POST", "/api/model/retrain", {}),
   cnnStatus: () => req<CnnStatus>("GET", "/api/cnn/status"),
   cnnTrain: () => req<{ started: boolean }>("POST", "/api/cnn/train", {}),
   cnnPredict: (board: number[][]) => req<{ ok: boolean; value?: number; count?: number; error?: string; calibrated?: boolean }>("POST", "/api/cnn/predict", { board }),
-  ocrStatus: () => req<{ tasks: OcrTask[] }>("GET", "/api/ocr/status"),
+  ocrStatus: () => req<{ tasks: OcrTask[]; pending_count: number }>("GET", "/api/ocr/status"),
+  ocrClearPending: () => req<{ ok: boolean; cleared: number }>("POST", "/api/ocr/clear-pending", {}),
   ocrScan: () => req<{ added: number; failed: number; total: number }>("POST", "/api/ocr/scan", {}),
   ocrConfirm: (taskId: number, items: unknown[], settlement?: Record<string, number | null>) =>
     req<{ ok: boolean; added_catalog?: number; updated_catalog?: number; game_no?: number; error?: string }>("POST", `/api/ocr/confirm/${taskId}`, { items, settlement }),

@@ -969,3 +969,21 @@ def delete_task(task_id: int) -> dict[str, Any]:
     with db() as conn:
         conn.execute("DELETE FROM ocr_tasks WHERE id=?", (task_id,))
     return {"ok": True}
+
+
+def clear_pending_tasks() -> dict[str, Any]:
+    """清空全部待确认 OCR 任务（含其关联样本）。
+
+    待确认任务 = status='pending'（未确认的识别结果）；
+    已确认（confirmed）任务记录保留，不影响图库。
+    """
+    with db() as conn:
+        ids = [
+            r["id"]
+            for r in conn.execute("SELECT id FROM ocr_tasks WHERE status='pending'").fetchall()
+        ]
+        if ids:
+            marks = ",".join("?" for _ in ids)
+            conn.execute(f"DELETE FROM ocr_samples WHERE task_id IN ({marks})", ids)
+            conn.execute(f"DELETE FROM ocr_tasks WHERE id IN ({marks})", ids)
+    return {"ok": True, "cleared": len(ids)}

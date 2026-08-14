@@ -20,7 +20,17 @@ router = APIRouter()
 
 @router.get("/api/ocr/status")
 def ocr_status() -> dict[str, Any]:
-    return {"tasks": ocr_mod.list_tasks()}
+    tasks = ocr_mod.list_tasks()
+    return {
+        "tasks": tasks,
+        "pending_count": sum(1 for t in tasks if t.get("status") == "pending"),
+    }
+
+
+@router.post("/api/ocr/clear-pending")
+def ocr_clear_pending() -> dict[str, Any]:
+    """清空全部待确认 OCR 任务（二次确认由前端承担）。"""
+    return ocr_mod.clear_pending_tasks()
 
 
 @router.post("/api/ocr/scan")

@@ -55,6 +55,29 @@ export default function AnnotatePage() {
   const lastClipHash = useRef("");
   const firstPeek = useRef(true);
   const imgRef = useRef<HTMLImageElement>(null);
+  const [ocrPending, setOcrPending] = useState<{ id: number; path: string; kind: string }[]>([]);
+
+  /* ── 待确认 OCR 任务（15s 轮询） ── */
+  useEffect(() => {
+    const load = () =>
+      api.ocrStatus()
+        .then((r) => setOcrPending(r.tasks.filter((t) => t.status === "pending")))
+        .catch(() => {});
+    load();
+    const t = setInterval(load, 15000);
+    return () => clearInterval(t);
+  }, []);
+
+  const clearPending = async () => {
+    if (!window.confirm(`确定清除 ${ocrPending.length} 个待确认 OCR 任务？此操作不可恢复。`)) return;
+    try {
+      const r = await api.ocrClearPending();
+      setOcrPending([]);
+      setMsg(`已清除 ${r.cleared} 个待确认任务，通知红点已归零`);
+    } catch {
+      setMsg("清除失败，请重试");
+    }
+  };
 
   useEffect(() => {
     api.catalogItems().then((r) => setItems(r.items)).catch(() => {});
@@ -558,6 +581,30 @@ export default function AnnotatePage() {
 
   return (
     <div className="space-y-5">
+      {/* ── 待确认 OCR 任务 ── */}
+      {ocrPending.length > 0 && (
+        <Card
+          title={`待确认 OCR 任务（${ocrPending.length}）`}
+          desc="以下截图已识别但未确认，可前往「截图识别」页处理"
+          className="border-vermilion-400/40"
+        >
+          <div className="flex flex-col gap-2">
+            <ul className="flex flex-wrap gap-2">
+              {ocrPending.map((t) => (
+                <li key={t.id} className="flex items-center gap-1.5 rounded-md border border-border-subtle bg-bg-elevated px-2.5 py-1.5 text-xs text-content-secondary">
+                  <span className="text-vermilion-400">●</span>
+                  {t.path.split(/[\\/]/).slice(-2).join("/")}
+                </li>
+              ))}
+            </ul>
+            <div>
+              <button className="btn-danger !h-8 !px-3 text-xs" onClick={clearPending}>
+                🗑 全部清除
+              </button>
+            </div>
+          </div>
+        </Card>
+      )}
       <Card
         title="标注校准（勾选确认）"
         desc="选择图片后自动识别红品格子与候选 → 勾选正确的 → 保存入库学习；标注记录可查看缩略图并删除"
