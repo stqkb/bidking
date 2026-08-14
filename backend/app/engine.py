@@ -168,6 +168,27 @@ def count_compositions(a: int, b: int, sizes: tuple[int, ...]) -> int:
     return int(dp[b, a])
 
 
+@lru_cache(maxsize=256)
+def _count_mset(b: int, a: int, sizes: tuple[int, ...]) -> int:
+    """唯一多重集计数（coin-change 式，顺序无关），饱和到 1e15。
+
+    _count_dp 统计的是**有序排列**数（含排列重复，数值巨大）；而本函数按
+    「每种格数可用任意次、顺序无关」计数，即真正的互不重复组合数——
+    用它判断「组合空间是否 > 采样目标」才准确，避免在很小空间里空转采样。
+    """
+    cap = 10**15
+    dp = np.zeros((b + 1, a + 1), dtype=np.int64)
+    dp[0, 0] = 1
+    for s in sizes:
+        if s > a:
+            continue
+        for i in range(1, b + 1):
+            row = dp[i]
+            prev = dp[i - 1]
+            row[s:] = np.minimum(row[s:] + prev[: a + 1 - s], cap)
+    return int(dp[b, a])
+
+
 def sample_composition(
     dp: list[list[int]], sizes: tuple[int, ...], b: int, a: int, rng: np.random.Generator
 ) -> list[int] | None:
@@ -202,30 +223,69 @@ def _sample_comps_mat(
 ) -> np.ndarray:
     """批量采样 n 个格数组合，返回 (n, b) 矩阵（每行 b 个位置依次填格数）。
 
-    替代原 sample_composition 的 b 步 × n 次 Python 循环：
-    每步把 n 个组合的剩余格数做成数组，对每个可用格数一次性做 DP 权重查表，
-    再向量化 choice。DP 权重只在 dp[rem-1, rem_a-s] > 0 时为非零，
-    因此「总格数对不上」的行是采样噪音，由调用方用 sum(行) == a 过滤。
+    每步用 active 掩码剔除已无路可走的行（剩余格数无法被剩余件数凑出的死行），
+    只对活跃行做 DP 权重查表与向量化 choice——避免死行空转计算。
+    死行位置留 0，由调用方用 sum(行) == a 过滤。
     """
     sizes_arr = np.asarray(sizes, dtype=np.int64)
     n_s = len(sizes_arr)
-    comps = np.empty((n, b), dtype=np.int64)
+    comps = np.zeros((n, b), dtype=np.int64)
     rem_a = np.full(n, a, dtype=np.int64)
+    active = np.ones(n, dtype=bool)
     for step in range(b):
         rem_b = b - step
-        w = np.zeros((n, n_s), dtype=np.float64)
+        a_idx = np.flatnonzero(active)
+        m = a_idx.size
+        if m == 0:
+            break
+        sub = rem_a[a_idx]
+        w = np.zeros((m, n_s), dtype=np.float64)
         for j, s in enumerate(sizes_arr):
-            idx = rem_a - s
-            ok = idx >= 0
-            vals = dp[rem_b - 1, np.clip(idx, 0, a)].astype(np.float64)
+            idx2 = sub - s
+            ok = idx2 >= 0
+            vals = dp[rem_b - 1, np.clip(idx2, 0, a)].astype(np.float64)
             w[:, j] = np.where(ok, vals, 0.0)
         total = w.sum(axis=1)
+        dead = total <= 0
+        if dead.all():
+            break
         safe = np.where(total > 0, total, 1.0)
-        r = rng.random(n) * safe + 1e-12
+        r = rng.random(m) * safe + 1e-12
         chosen = np.argmax(np.cumsum(w, axis=1) >= r[:, None], axis=1)
-        comps[:, step] = sizes_arr[chosen]
-        rem_a -= sizes_arr[chosen]
+        sel = sizes_arr[chosen]
+        comps[a_idx, step] = sel
+        rem_a[a_idx] = sub - sel
+        active[a_idx[dead]] = False
     return comps
+
+
+def _enumerate_comps(
+    dp: np.ndarray, sizes: tuple[int, ...], b: int, a: int
+) -> list[list[int]]:
+    """按非递减约束回溯枚举全部合法格数组合（唯一多重集，无需去重）。
+
+    组合总数已知 <= 调用方阈值时才启用：确定性返回所有组合，
+    替代「随机采样 + set 去重」在小空间下的空转（曾出现 20 轮采样仍集不齐）。
+    """
+    sizes_l = sorted(sizes)
+    out: list[list[int]] = []
+
+    def rec(rem_b: int, rem_a: int, min_si: int, cur: list[int]) -> None:
+        if rem_b == 0:
+            if rem_a == 0:
+                out.append(cur[:])
+            return
+        for j in range(min_si, len(sizes_l)):
+            s = sizes_l[j]
+            if s > rem_a:
+                break
+            if dp[rem_b - 1, rem_a - s] > 0:
+                cur.append(s)
+                rec(rem_b - 1, rem_a - s, j, cur)
+                cur.pop()
+
+    rec(b, a, 0, [])
+    return out
 
 
 def sample_compositions(
@@ -238,9 +298,9 @@ def sample_compositions(
 ) -> list[list[int]]:
     """采样 n 组互不重复的格数组合；must_include 指定必须出现的格数（可多个，如已知红品）。
 
-    原实现用 while + 逐组贪心采样 + set 去重（tries 上限 n*8，组合空间小时浪费、
-    空间大时去重几乎不触发但仍为纯 Python）。改为：批量向量采样 + np.unique 去重，
-    组合总数远大于 n 时去重开销可忽略；组合数少于 n 时补采若干轮即可覆盖全部。
+    策略分两档：
+    - 组合总数 <= n：DP 回溯**枚举全部**（确定性，一次返回，避免随机去重空转）；
+    - 组合总数 > n：批量向量采样 + set 去重，通常 1~2 轮即可集齐。
     """
     sizes = tuple(sorted(sizes))
     if must_include is not None:
@@ -262,10 +322,21 @@ def sample_compositions(
             return []
         base_b, base_a, base_known = b, a, []
 
+    # 用「唯一多重集数」判断空间：有序排列数(总)往往巨大但多重集很少，
+    # 若多重集 <= n 直接枚举，避免在小空间里随机采样去重空转。
+    mset = _count_mset(base_b, base_a, sizes)
+    if mset <= 0:
+        return []
+    if mset <= n:
+        enum = _enumerate_comps(dp, sizes, base_b, base_a)
+        if base_known:
+            return [sorted(base_known + c) for c in enum]
+        return enum
+
     out: list[list[int]] = []
     seen: set[tuple[int, ...]] = set()
     batch_n = max(n * 6, 600)          # 单批采样量：组合空间大时首轮即可集齐
-    for _ in range(20):                # 轮数上限，空间极小（< n）时也能覆盖
+    for _ in range(20):                # 轮数上限（通常 1~2 轮命中）
         mat = _sample_comps_mat(dp, sizes, base_b, base_a, rng, batch_n)
         valid = mat[mat.sum(axis=1) == base_a]
         if valid.size == 0:
