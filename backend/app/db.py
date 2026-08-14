@@ -22,11 +22,14 @@ def get_conn() -> sqlite3.Connection:
 
 
 @contextmanager
-def db() -> Iterator[sqlite3.Connection]:
+def db(readonly: bool = False) -> Iterator[sqlite3.Connection]:
     conn = get_conn()
     try:
         yield conn
-        conn.commit()
+        if readonly:
+            conn.rollback()   # 纯读操作：不触发 WAL commit，回滚挂起事务
+        else:
+            conn.commit()
     finally:
         conn.close()
 

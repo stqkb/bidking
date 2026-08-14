@@ -154,7 +154,8 @@ def _full_texts(path: str, scale: int = 3) -> list[dict[str, Any]]:
         elif long_side > 900:
             scale = 2
     key = _ocr_cache_key(path, scale)
-    cached = _OCR_CACHE.get(key)
+    with _OCR_CACHE_LOCK:
+        cached = _OCR_CACHE.get(key)
     if cached is not None:
         return cached
     if scale != 1:

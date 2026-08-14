@@ -13,7 +13,7 @@ router = APIRouter()
 
 @router.get("/api/health")
 def health() -> dict[str, Any]:
-    with db() as conn:
+    with db(readonly=True) as conn:
         n_cat = conn.execute("SELECT COUNT(*) c FROM catalog_items").fetchone()["c"]
         n_games = conn.execute("SELECT COUNT(*) c FROM game_records").fetchone()["c"]
     return {

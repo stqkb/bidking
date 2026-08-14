@@ -113,25 +113,34 @@ def estimate(inputs: dict[str, Any], board: list[list[int]] | None = None) -> di
 # ---- 后台重训回调（供 core.bg 注册）----
 
 
-def retrain_ml() -> None:
-    """后台线程执行 ML 重训，完成后标记状态。"""
-    with db() as conn:
+def retrain_ml(conn=None) -> None:
+    """后台线程执行 ML 重训，完成后标记状态。conn 非空时复用调用方连接。"""
+    if conn is not None:
         ml.retrain(conn)
+    else:
+        with db() as c:
+            ml.retrain(c)
     bg.mark_done("ml")
 
 
-def retrain_cnn() -> None:
-    """后台线程执行 CNN 重训，完成后标记状态。"""
-    with db() as conn:
+def retrain_cnn(conn=None) -> None:
+    """后台线程执行 CNN 重训，完成后标记状态。conn 非空时复用调用方连接。"""
+    if conn is not None:
         cnn_mod.train(conn)
+    else:
+        with db() as c:
+            cnn_mod.train(c)
     bg.mark_done("cnn")
 
 
 def retrain_all() -> None:
-    """顺序执行 ML → CNN 重训（单个后台线程）。
+    """顺序执行 ML → CNN 重训（单个后台线程，复用 DB 连接）。
 
     原实现对局确认后同时 start ml 与 cnn 两个后台线程，会竞争 CPU 与
-    数据库连接；改为按序执行，由调用方注册为单一任务「train」。
+    数据库连接；改为按序执行并复用同一连接，由调用方注册为单一任务「train」。
     """
-    retrain_ml()
-    retrain_cnn()
+    with db() as conn:
+        ml.retrain(conn)
+        cnn_mod.train(conn)
+    bg.mark_done("ml")
+    bg.mark_done("cnn")

@@ -23,13 +23,13 @@ router = APIRouter()
 
 def _catalog_value(name: str) -> float | None:
     """按名称查图鉴当前值（原名 main._catalog_value）。"""
-    with db() as conn:
+    with db(readonly=True) as conn:
         return matching.catalog_value(conn, name)
 
 
 @router.get("/api/vision/gallery")
 def vision_gallery() -> dict[str, Any]:
-    with db() as conn:
+    with db(readonly=True) as conn:
         return vision.gallery(conn)
 
 

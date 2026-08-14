@@ -22,7 +22,7 @@ router = APIRouter()
 
 @router.get("/api/catalog")
 def catalog() -> dict[str, Any]:
-    with db() as conn:
+    with db(readonly=True) as conn:
         stats = engine.get_catalog_stats(conn)
         total = conn.execute("SELECT COUNT(*) c FROM catalog_items").fetchone()["c"]
     out = {
@@ -46,7 +46,7 @@ def catalog() -> dict[str, Any]:
 
 @router.get("/api/catalog/items")
 def catalog_items() -> dict[str, Any]:
-    with db() as conn:
+    with db(readonly=True) as conn:
         rows = conn.execute(
             "SELECT id, name, grid_cells, value FROM catalog_items ORDER BY grid_cells, value DESC"
         ).fetchall()
@@ -94,7 +94,7 @@ def catalog_delete(body: schemas.CatalogDeleteInput) -> dict[str, Any]:
 
 @router.get("/api/games")
 def games() -> dict[str, Any]:
-    with db() as conn:
+    with db(readonly=True) as conn:
         rows = conn.execute("SELECT * FROM game_records ORDER BY game_no").fetchall()
     out = []
     for r in rows:
@@ -169,7 +169,7 @@ def game_delete(game_no: int) -> dict[str, Any]:
 
 @router.get("/api/records")
 def records() -> dict[str, Any]:
-    with db() as conn:
+    with db(readonly=True) as conn:
         rows = conn.execute("SELECT * FROM user_records ORDER BY created_at DESC").fetchall()
     out = []
     for r in rows:

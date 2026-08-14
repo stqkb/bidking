@@ -30,7 +30,7 @@ def model_retrain() -> dict[str, Any]:
 
 @router.get("/api/model/status")
 def model_status() -> dict[str, Any]:
-    with db() as conn:
+    with db(readonly=True) as conn:
         return ml.model_status(conn)
 
 
