@@ -142,18 +142,22 @@ def rank_candidates(
 
 
 @lru_cache(maxsize=256)
-def _count_dp(b: int, a: int, sizes: tuple[int, ...]) -> list[list[int]]:
-    """有序格数组合计数 DP，饱和到 1e15 防止大数拖慢。"""
+def _count_dp(b: int, a: int, sizes: tuple[int, ...]) -> np.ndarray:
+    """有序格数组合计数 DP（numpy int64，饱和到 1e15 防止大数拖慢）。
+
+    返回 (b+1, a+1) 数组：dp[i, j] = i 件总格数 j 的合法组合数。
+    原实现用 list of lists + 逐元素 Python 索引，改为 numpy 行内向量加法，
+    每行一次 O(a) 的向量操作替代 O(a) 次 Python 循环。
+    """
     cap = 10**15
-    dp = [[0] * (a + 1) for _ in range(b + 1)]
-    dp[0][0] = 1
+    dp = np.zeros((b + 1, a + 1), dtype=np.int64)
+    dp[0, 0] = 1
     for i in range(1, b + 1):
-        row = dp[i]
         prev = dp[i - 1]
+        row = dp[i]
         for s in sizes:
-            for t in range(s, a + 1):
-                v = row[t] + prev[t - s]
-                row[t] = v if v < cap else cap
+            if s <= a:
+                row[s:] = np.minimum(row[s:] + prev[: a + 1 - s], cap)
     return dp
 
 
@@ -161,7 +165,7 @@ def count_compositions(a: int, b: int, sizes: tuple[int, ...]) -> int:
     if a <= 0 or b <= 0:
         return 0
     dp = _count_dp(b, a, tuple(sorted(sizes)))
-    return dp[b][a]
+    return int(dp[b, a])
 
 
 def sample_composition(
@@ -188,6 +192,42 @@ def sample_composition(
     return comp
 
 
+def _sample_comps_mat(
+    dp: np.ndarray,
+    sizes: tuple[int, ...],
+    b: int,
+    a: int,
+    rng: np.random.Generator,
+    n: int,
+) -> np.ndarray:
+    """批量采样 n 个格数组合，返回 (n, b) 矩阵（每行 b 个位置依次填格数）。
+
+    替代原 sample_composition 的 b 步 × n 次 Python 循环：
+    每步把 n 个组合的剩余格数做成数组，对每个可用格数一次性做 DP 权重查表，
+    再向量化 choice。DP 权重只在 dp[rem-1, rem_a-s] > 0 时为非零，
+    因此「总格数对不上」的行是采样噪音，由调用方用 sum(行) == a 过滤。
+    """
+    sizes_arr = np.asarray(sizes, dtype=np.int64)
+    n_s = len(sizes_arr)
+    comps = np.empty((n, b), dtype=np.int64)
+    rem_a = np.full(n, a, dtype=np.int64)
+    for step in range(b):
+        rem_b = b - step
+        w = np.zeros((n, n_s), dtype=np.float64)
+        for j, s in enumerate(sizes_arr):
+            idx = rem_a - s
+            ok = idx >= 0
+            vals = dp[rem_b - 1, np.clip(idx, 0, a)].astype(np.float64)
+            w[:, j] = np.where(ok, vals, 0.0)
+        total = w.sum(axis=1)
+        safe = np.where(total > 0, total, 1.0)
+        r = rng.random(n) * safe + 1e-12
+        chosen = np.argmax(np.cumsum(w, axis=1) >= r[:, None], axis=1)
+        comps[:, step] = sizes_arr[chosen]
+        rem_a -= sizes_arr[chosen]
+    return comps
+
+
 def sample_compositions(
     a: int,
     b: int,
@@ -196,7 +236,13 @@ def sample_compositions(
     rng,
     must_include: int | list[int] | None = None,
 ) -> list[list[int]]:
-    """采样 n 组互不重复的格数组合；must_include 指定必须出现的格数（可多个，如已知红品）。"""
+    """采样 n 组互不重复的格数组合；must_include 指定必须出现的格数（可多个，如已知红品）。
+
+    原实现用 while + 逐组贪心采样 + set 去重（tries 上限 n*8，组合空间小时浪费、
+    空间大时去重几乎不触发但仍为纯 Python）。改为：批量向量采样 + np.unique 去重，
+    组合总数远大于 n 时去重开销可忽略；组合数少于 n 时补采若干轮即可覆盖全部。
+    """
+    sizes = tuple(sorted(sizes))
     if must_include is not None:
         known = [must_include] if isinstance(must_include, int) else list(must_include)
         if any(s not in sizes for s in known):
@@ -206,34 +252,44 @@ def sample_compositions(
             return []
         if rem_b == 0:
             return [sorted(known)] if rem_a == 0 else []
-        dp = _count_dp(rem_b, rem_a, tuple(sorted(sizes)))
-        if dp[rem_b][rem_a] <= 0:
+        dp = _count_dp(rem_b, rem_a, sizes)
+        if dp[rem_b, rem_a] <= 0:
             return []
+        base_b, base_a, base_known = rem_b, rem_a, sorted(known)
     else:
-        dp = _count_dp(b, a, tuple(sorted(sizes)))
-        if dp[b][a] <= 0:
+        dp = _count_dp(b, a, sizes)
+        if dp[b, a] <= 0:
             return []
+        base_b, base_a, base_known = b, a, []
+
     out: list[list[int]] = []
     seen: set[tuple[int, ...]] = set()
-    tries = 0
-    while len(out) < n and tries < n * 8:
-        tries += 1
-        if must_include is not None:
-            rest = sample_composition(dp, tuple(sorted(sizes)), rem_b, rem_a, rng)
-            if rest is None:
-                continue
-            comp = sorted(known + rest)
+    batch_n = max(n * 6, 600)          # 单批采样量：组合空间大时首轮即可集齐
+    for _ in range(20):                # 轮数上限，空间极小（< n）时也能覆盖
+        mat = _sample_comps_mat(dp, sizes, base_b, base_a, rng, batch_n)
+        valid = mat[mat.sum(axis=1) == base_a]
+        if valid.size == 0:
+            break
+        if base_known:
+            kn = np.asarray(base_known, dtype=np.int64)
+            merged = np.sort(
+                np.concatenate(
+                    [valid, np.broadcast_to(kn, (valid.shape[0], len(kn)))], axis=1
+                ),
+                axis=1,
+            )
+            rows = merged.tolist()
         else:
-            comp = sample_composition(dp, tuple(sorted(sizes)), b, a, rng)
-            if comp is None:
+            rows = np.sort(valid, axis=1).tolist()
+        for row in rows:
+            key = tuple(row)
+            if key in seen:
                 continue
-            comp = sorted(comp)
-        key = tuple(comp)
-        if key in seen:
-            continue
-        seen.add(key)
-        out.append(comp)
-    return out
+            seen.add(key)
+            out.append(row)
+            if len(out) >= n:
+                return out[:n]
+    return out[:n]
 
 
 def calibration_factor(stats: dict[int, dict[str, Any]], known_size: int | None,
@@ -253,27 +309,43 @@ def estimate_candidate(
     b: int,
     stats: dict[int, dict[str, Any]],
     rng: np.random.Generator,
-    n_comps: int = 800,
-    mc_draws: int = 8,
+    n_comps: int = 400,
+    mc_draws: int = 16,
     must_include: int | list[int] | None = None,
     known_adjust: float = 0.0,
 ) -> dict[str, Any] | None:
+    """单候选估值：批量组合采样 + 向量化期望与蒙特卡洛区间。
+
+    原实现对每个组合逐格 `rng.choice(pool[s])` 共 n_comps×mc_draws×b 次 Python 调用；
+    现改为把组合写成 (n_comps, b) 矩阵，一次生成 (n_comps, b, mc_draws) 随机索引
+    直接查全局价格池求和，EV 同样向量化。数值语义与原来一致。
+    """
     sizes = tuple(sorted(stats.keys()))
     comps = sample_compositions(a, b, sizes, n_comps, rng, must_include=must_include)
     if not comps:
         return None
-    evs: list[float] = []
-    totals: list[float] = []
-    for comp in comps:
-        ev = sum(stats[s]["mean"] for s in comp) + known_adjust
-        evs.append(ev)
-        for _ in range(mc_draws):
-            totals.append(float(sum(rng.choice(stats[s]["pool"]) for s in comp)) + known_adjust)
+    n_eff = len(comps)
+    # 预构建按格数数组 + 全局价格池
+    means = np.array([stats[s]["mean"] for s in sizes])
+    pools = [stats[s]["pool"] for s in sizes]
+    offsets = np.cumsum([0] + [p.size for p in pools])[:-1]
+    big_pool = np.concatenate(pools) if pools else np.zeros(0, dtype=float)
+
+    comps_np = np.asarray(comps, dtype=np.int64)      # (n_eff, b)
+    size_ids = np.searchsorted(sizes, comps_np)        # (n_eff, b)
+    # 组合期望：每格均值求和（确定性，无需 MC）
+    evs = means[size_ids].sum(axis=1) + known_adjust   # (n_eff,)
+    # 蒙特卡洛：每位置独立抽样 mc_draws 次价值并求和
+    lens = np.array([p.size for p in pools])[size_ids]  # (n_eff, b)
+    offs = offsets[size_ids]                            # (n_eff, b)
+    idx = rng.integers(0, lens[:, :, None], size=(n_eff, b, mc_draws))
+    vals = big_pool[offs[:, :, None] + idx]             # (n_eff, b, mc_draws)
+    totals = vals.sum(axis=1) + known_adjust            # (n_eff, mc_draws)
     return {
         "ev": float(np.mean(evs)),
-        "totals": totals,
-        "compositions": [sorted(comp) for comp in comps[:5]],
-        "n_compositions": len(comps),
+        "totals": totals.reshape(-1),
+        "compositions": [sorted(c.tolist()) for c in comps_np[:5]],
+        "n_compositions": n_eff,
     }
 
 
@@ -286,11 +358,17 @@ def aggregate_red(
     known_value_total: float = 0.0,
     known_adjust: float = 0.0,
 ) -> dict[str, Any]:
-    """聚合各候选的红品价值统计（按候选得分加权）。"""
+    """聚合各候选的红品价值统计（按候选得分加权）。
+
+    原实现对拼接后的样本做 20000 次加权重采样再取分位数（每次请求 ~20000 次
+    fancy indexing，且带随机噪声）；改为直接对加权样本按值排序、累计权重插值
+    求分位数（等价于重采样的期望极限），O(M log M)，更快且结果确定。
+    """
     evs: list[float] = []
-    pooled: list[float] = []
+    pooled_arrays: list[np.ndarray] = []
     comps: list[list[int]] = []
     cand_weights: list[float] = []
+    ev_weights: list[float] = []
     for cand in candidates:
         est = estimate_candidate(
             cand["red_grids"],
@@ -313,32 +391,40 @@ def aggregate_red(
         cand["compositions"] = est["compositions"]
         cand["composition_count"] = est["n_compositions"]
         evs.append(est["ev"])
-        pooled.extend(est["totals"])
+        pooled_arrays.append(est["totals"])
         # 每个候选按分数等权参与区间抽样（除以各自的抽样次数），
         # 避免组合数多的候选在 p10/p90 里被重复加权，导致区间与期望不一致。
-        draw_w = max(cand["score"], 0.02) / max(len(est["totals"]), 1)
-        cand_weights.extend([draw_w] * len(est["totals"]))
+        n_tot = int(est["totals"].size)
+        draw_w = max(cand["score"], 0.02) / max(n_tot, 1)
+        cand_weights.extend([draw_w] * n_tot)
+        ev_weights.append(max(cand["score"], 0.02))
         comps.extend(est["compositions"])
     if not evs:
         return {}
+    pooled_np = np.concatenate(pooled_arrays)
     w = np.asarray(cand_weights, dtype=float)
     w = w / w.sum()
-    rng2 = np.random.default_rng(7)
-    idx = rng2.choice(len(pooled), size=20000, p=w)
-    arr = np.asarray(pooled)[idx] * factor
-    log_arr = np.log(np.clip(arr, 1.0, None))
-    weights_by_cand = np.asarray(
-        [max(c["score"], 0.02) for c in candidates if "estimate" in c], dtype=float
-    )
+    # 对数域加权分位数（等价于原 20000 次重采样 + percentile 的期望极限）
+    log_arr = np.log(np.clip(pooled_np, 1.0, None))
+    order = np.argsort(log_arr)
+    ls = log_arr[order]
+    ws = w[order]
+    cw = np.cumsum(ws)
+    cw = cw / cw[-1]
+
+    def wq(p: float) -> float:
+        return float(np.interp(p, cw, ls))
+
+    weights_by_cand = np.asarray(ev_weights, dtype=float)
     weights_by_cand = weights_by_cand / weights_by_cand.sum()
     ev = float(np.average(evs, weights=weights_by_cand)) * factor
     return {
         "ev": ev,
-        "p10": float(np.exp(np.percentile(log_arr, 10))),
-        "p50": float(np.exp(np.percentile(log_arr, 50))),
-        "p90": float(np.exp(np.percentile(log_arr, 90))),
-        "min": float(np.exp(np.percentile(log_arr, 2))),
-        "max": float(np.exp(np.percentile(log_arr, 98))),
+        "p10": float(np.exp(wq(0.10))) * factor,
+        "p50": float(np.exp(wq(0.50))) * factor,
+        "p90": float(np.exp(wq(0.90))) * factor,
+        "min": float(np.exp(wq(0.02))) * factor,
+        "max": float(np.exp(wq(0.98))) * factor,
         "factor": factor,
         "composition_samples": comps[:8],
     }
