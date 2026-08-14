@@ -214,6 +214,97 @@ def game_items_update(game_no: int, body: schemas.ItemsUpdateInput) -> dict[str,
     }
 
 
+@router.post("/api/quick-archive")
+def quick_archive(body: schemas.QuickArchiveInput) -> dict[str, Any]:
+    """一键归档：把一次估值结果保存为对局记录（数据采集效率优化）。
+
+    提供 actual_full 视为已结算（status=settled）；未提供则标记
+    status=pending_settlement（红品/全场默认取估值），待结算局不进模型训练，
+    由 POST /api/settle/{game_no} 补充实际值后进入训练集。
+    """
+    items = [
+        {"name": it.name, "grid_cells": int(it.grid_cells or 0),
+         "trade_price": float(it.value or 0)}
+        for it in body.known_items
+    ]
+    est = body.estimate_result or {}
+    est_red = float((est.get("red") or {}).get("ev") or 0)
+    est_full = float((est.get("full") or {}).get("ev") or 0)
+    red_value = float(body.actual_red) if body.actual_red is not None else est_red
+    full_value = float(body.actual_full) if body.actual_full is not None else est_full
+    if items:
+        cells = [it["grid_cells"] for it in items]
+        red_grids = int(body.total_grids or sum(cells))
+        red_count = len(items)
+        red_avg = round(red_grids / red_count, 1) if red_count else None
+        combo = "+".join(str(c) for c in sorted(cells)) if cells else None
+    else:
+        red_grids = int(body.total_grids or 0)
+        red_count = int(body.red_count or 0)
+        red_avg = round(float(body.red_avg), 1) if body.red_avg else None
+        combo = None
+    status = "settled" if body.actual_full is not None else "pending_settlement"
+    now = datetime.now().isoformat(timespec="seconds")
+    with db() as conn:
+        game_no = conn.execute(
+            "SELECT COALESCE(MAX(game_no),0)+1 m FROM game_records"
+        ).fetchone()["m"]
+        conn.execute(
+            """INSERT INTO game_records
+               (game_no, grid_combo, red_count, red_grids, red_avg, red_value,
+                full_value, deal_price, profit, items_json, won, profit_ok, status)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+            (game_no, combo, red_count or None, red_grids or None, red_avg,
+             red_value or None, full_value or None, None, None,
+             json_dumps(items), 0, 1, status),
+        )
+    cache.invalidate_games()
+    return {"ok": True, "game_no": game_no, "status": status, "saved_at": now}
+
+
+@router.post("/api/settle/{game_no}")
+def settle_game(game_no: int, body: schemas.SettleInput) -> dict[str, Any]:
+    """补充结算：待结算对局回填实际总价值/红品价值，进入训练集。"""
+    with db() as conn:
+        row = conn.execute(
+            "SELECT full_value, deal_price, profit FROM game_records WHERE game_no=?",
+            (game_no,),
+        ).fetchone()
+        if row is None:
+            raise HTTPException(status_code=404, detail="对局不存在")
+        if body.actual_full is not None:
+            conn.execute(
+                "UPDATE game_records SET full_value=? WHERE game_no=?",
+                (body.actual_full, game_no),
+            )
+        if body.actual_red is not None:
+            conn.execute(
+                "UPDATE game_records SET red_value=? WHERE game_no=?",
+                (body.actual_red, game_no),
+            )
+        new_full = body.actual_full if body.actual_full is not None else row["full_value"]
+        profit_ok = ocr_mod._check_profit_ok(new_full, row["deal_price"], row["profit"])
+        conn.execute(
+            "UPDATE game_records SET status='settled', profit_ok=? WHERE game_no=?",
+            (profit_ok, game_no),
+        )
+    cache.invalidate_games()
+    if body.actual_full is not None or body.actual_red is not None:
+        bg.start("train", estimator.retrain_all, force=True)
+    return {"ok": True, "game_no": game_no, "status": "settled"}
+
+
+@router.get("/api/pending-settlement")
+def pending_settlement() -> dict[str, Any]:
+    """待结算对局列表（供前端 Dashboard/TopBar 提醒）。"""
+    with db(readonly=True) as conn:
+        rows = conn.execute(
+            """SELECT game_no, red_avg, red_count, red_grids, red_value, full_value, won
+               FROM game_records WHERE status='pending_settlement' ORDER BY game_no"""
+        ).fetchall()
+    return {"items": [dict(r) for r in rows], "count": len(rows)}
+
+
 @router.delete("/api/games/{game_no}")
 def game_delete(game_no: int) -> dict[str, Any]:
     """删除一条历史对局，并把剩余对局重排为连续 1..N（避免局号断档）。"""

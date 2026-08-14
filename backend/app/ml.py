@@ -88,6 +88,7 @@ def build_dataset(conn) -> tuple[list[dict[str, Any]], list[float], list[float]]
            FROM game_records
            WHERE red_avg > 0 AND red_value > 0 AND full_value > 0
              AND COALESCE(profit_ok, 1) = 1
+             AND COALESCE(status, '') != 'pending_settlement'
            ORDER BY game_no"""
     ).fetchall()
     if not stats:

@@ -58,7 +58,8 @@ CREATE TABLE IF NOT EXISTS game_records (
     winner TEXT,
     items_json TEXT,
     won INTEGER,
-    profit_ok INTEGER
+    profit_ok INTEGER,
+    status TEXT
 );
 
 CREATE TABLE IF NOT EXISTS user_records (
@@ -129,6 +130,9 @@ def init_db() -> None:
             conn.execute("ALTER TABLE game_records ADD COLUMN profit_ok INTEGER")
             # 历史场次此前已统一核验收益=成交价-总价值，默认视为核验通过
             conn.execute("UPDATE game_records SET profit_ok = 1 WHERE profit_ok IS NULL")
+        if "status" not in gcols:
+            # 归档状态：settled=已结算 / pending_settlement=待结算（估值当实际，不进训练）
+            conn.execute("ALTER TABLE game_records ADD COLUMN status TEXT")
 
 
 def rows_to_dicts(rows: list[sqlite3.Row]) -> list[dict[str, Any]]:

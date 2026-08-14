@@ -10,6 +10,7 @@
 ## 2026-08-14
 
 ### ✨ 新增 / 变更
+- **一键归档（数据采集效率）**：新增 `POST /api/quick-archive`（估值结果直接保存为对局，有结算→`settled`，无→`pending_settlement`）、`POST /api/settle/{game_no}`（补充实际值并触发重训）、`GET /api/pending-settlement`（待结算列表）。**待结算局（估值当实际）自动排除出训练集**（`build_dataset` 过滤），settle 后进入训练，避免模型自我强化。`game_records` 新增 `status` 列（CREATE + ALTER 兼容）。
 - **遗留页色值迁移**：AnnotatePage / CnnPage / LearnPage / OcrPage / BoardEditor 共 **131 处**旧色值（`text-slate-*`、`text-indigo-*`、`bg-emerald-*`、`border-rose-*` 等）全部迁移到 design token 语义类（`text-content-*`、`text-gold-400`、`text-jade-400`、`text-vermilion-400`、`bg-*-soft` 等）；**删除 index.css 旧类名兼容映射段**（394-485 行），构建零错误、全 src 旧色值清零（amber 保留为设计语义色）。
 - **后端封版字段**：`/api/estimate` 的 bid 响应新增 `confidence`（GP std 推算，0-1）与 `interval_method`（`gp_conformal` / `loocv_fallback` / `rule_mc`），供前端 IntervalBar 展示。
 - **Runbook 性能线**：LOOCV 中 GP 用 `fast_gp`（n_restarts=0，单次核优化，精度相同）——**重训耗时 8-9 分钟 → 78s**（8 倍加速，目标 <120s 达标）。

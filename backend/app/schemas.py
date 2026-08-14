@@ -103,6 +103,29 @@ class ItemsUpdateInput(BaseModel):
     items: list[SummaryItemInput] = []
 
 
+class QuickArchiveItem(BaseModel):
+    name: str
+    grid_cells: int = 0
+    value: float = 0
+
+
+class QuickArchiveInput(BaseModel):
+    """一键归档：把一次估值结果保存为对局记录（可后补结算）。"""
+    red_avg: float
+    red_count: int | None = None
+    total_grids: int | None = None
+    known_items: list[QuickArchiveItem] = []
+    estimate_result: dict[str, Any] = {}  # /api/estimate 完整返回
+    actual_full: float | None = None  # 实际全场结算（可选，提供即视为已结算）
+    actual_red: float | None = None  # 实际红品结算（可选）
+
+
+class SettleInput(BaseModel):
+    """补充结算：待结算对局回填实际值，进入训练集。"""
+    actual_full: float | None = None
+    actual_red: float | None = None
+
+
 class CatalogDeleteInput(BaseModel):
     ids: list[int] = []
 
