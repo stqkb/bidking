@@ -44,6 +44,12 @@ export const api = {
     req<{ ok: boolean; game_no: number; won: boolean }>("PATCH", `/api/games/${game_no}`, { won }),
   updateGamePrices: (game_no: number, body: { total_value?: number | null; deal_price?: number | null; profit?: number | null }) =>
     req<{ ok: boolean; game_no: number; won: number | null; profit_ok: number | null }>("PATCH", `/api/games/${game_no}`, body),
+  updateGameItems: (game_no: number, body: { items: { name: string; grid_cells: number; value: number }[] }) =>
+    req<{ ok: boolean; game_no: number; red_count: number; red_grids: number; red_avg: number | null; grid_combo: string | null; red_value: number; profit_ok: number | null }>(
+      "PUT",
+      `/api/games/${game_no}/items`,
+      body,
+    ),
   deleteGame: (game_no: number) =>
     req<{ ok: boolean; deleted: number; games: number }>("DELETE", `/api/games/${game_no}`),
   gameAccuracy: () =>

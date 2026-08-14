@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import math
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -187,6 +188,51 @@ def game_update(game_no: int, body: schemas.GamePatchInput) -> dict[str, Any]:
         )
     cache.invalidate_games()
     return {"ok": True, "game_no": game_no, "won": won, "profit_ok": profit_ok}
+
+
+@router.put("/api/games/{game_no}/items")
+def game_items_update(game_no: int, body: schemas.ItemsUpdateInput) -> dict[str, Any]:
+    """整单红品列表更新（对某局红品增删改查）。
+
+    接收完整红品列表（name/grid_cells/value），替换 items_json 并重算
+    red_count / red_grids / red_avg / grid_combo / red_value，重新核验收益。
+    """
+    with db() as conn:
+        row = conn.execute(
+            "SELECT full_value, deal_price, profit FROM game_records WHERE game_no=?",
+            (game_no,),
+        ).fetchone()
+        if row is None:
+            raise HTTPException(status_code=404, detail="对局不存在")
+        saved = [{
+            "name": it.name,
+            "grid_cells": int(it.grid_cells or 0),
+            "trade_price": float(it.value or 0),
+        } for it in body.items]
+        cells = [it["grid_cells"] for it in saved]
+        red_count = len(saved)
+        red_grids = sum(cells)
+        red_avg = math.floor(red_grids / red_count * 10) / 10 if red_count else None
+        combo = "+".join(str(c) for c in sorted(cells)) if cells else None
+        red_value = round(sum(it["trade_price"] for it in saved), 0)
+        profit_ok = ocr_mod._check_profit_ok(row["full_value"], row["deal_price"], row["profit"])
+        conn.execute(
+            """UPDATE game_records SET items_json=?, red_count=?, red_grids=?,
+               red_avg=?, grid_combo=?, red_value=?, profit_ok=? WHERE game_no=?""",
+            (json_dumps(saved), red_count or None, red_grids or None, red_avg,
+             combo, red_value or None, profit_ok, game_no),
+        )
+    cache.invalidate_games()
+    return {
+        "ok": True,
+        "game_no": game_no,
+        "red_count": red_count,
+        "red_grids": red_grids,
+        "red_avg": red_avg,
+        "grid_combo": combo,
+        "red_value": red_value,
+        "profit_ok": profit_ok,
+    }
 
 
 @router.delete("/api/games/{game_no}")

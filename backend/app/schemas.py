@@ -98,6 +98,11 @@ class GamePatchInput(BaseModel):
     profit: float | None = None  # 收益/盈亏
 
 
+class ItemsUpdateInput(BaseModel):
+    """整单红品列表更新（增删改查红品）"""
+    items: list[SummaryItemInput] = []
+
+
 class CatalogDeleteInput(BaseModel):
     ids: list[int] = []
 

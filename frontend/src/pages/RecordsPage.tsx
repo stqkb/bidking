@@ -22,6 +22,8 @@ export default function RecordsPage() {
     profit: "",
   });
   const [delConfirm, setDelConfirm] = useState<number | null>(null);
+  const [editItemsOpen, setEditItemsOpen] = useState<number | null>(null);
+  const [editItems, setEditItems] = useState<{ name: string; grid_cells: number; value: number }[]>([]);
   const [accuracy, setAccuracy] = useState<{ game_no: number; red_avg: number; item: string; pred: number; actual: number; ratio: number }[]>([]);
   const [accLoading, setAccLoading] = useState(false);
 
@@ -132,6 +134,35 @@ export default function RecordsPage() {
     setOpen(null);
     setMsg(`已删除局 ${g.game_no}，剩余对局已重新连续编号`);
     setTimeout(() => setMsg(""), 4000);
+    await load();
+  };
+
+  // ---- 红品增删改查 ----
+  const startEditItems = (g: GameRecord) => {
+    setEditItemsOpen(g.game_no);
+    setOpen(g.game_no);
+    setEditItems(
+      (g.items ?? []).map((it) => ({
+        name: it.name,
+        grid_cells: it.grid_cells,
+        value: it.trade_price ?? it.sys_price ?? 0,
+      })),
+    );
+  };
+  const setItemField = (i: number, k: "name" | "grid_cells" | "value", v: string) => {
+    setEditItems((prev) => {
+      const next = [...prev];
+      next[i] = { ...next[i], [k]: k === "name" ? v : Number(v) || 0 };
+      return next;
+    });
+  };
+  const addItemRow = () => setEditItems((p) => [...p, { name: "", grid_cells: 1, value: 0 }]);
+  const removeItemRow = (i: number) => setEditItems((p) => p.filter((_, j) => j !== i));
+  const saveItems = async (g: GameRecord) => {
+    await api.updateGameItems(g.game_no, { items: editItems });
+    setEditItemsOpen(null);
+    setMsg(`红品已更新（${editItems.length} 件），汇总字段已重算`);
+    setTimeout(() => setMsg(""), 3000);
     await load();
   };
 
@@ -541,18 +572,73 @@ export default function RecordsPage() {
                           </button>
                         )}
                       </div>
-                      {/* 红品明细（限高滚动，避免过多） */}
-                      <div className="mt-2 flex max-h-40 flex-wrap gap-2 overflow-y-auto">
-                        {g.items.map((it, i) => (
-                          <span
-                            key={i}
-                            className="rounded-lg border px-2.5 py-1 text-xs text-slate-200"
-                            style={{ borderColor: "var(--border-subtle)", background: "var(--bg-primary)" }}
+                      {/* 红品明细：查看 / 编辑 */}
+                      {editItemsOpen === g.game_no ? (
+                        <div className="mt-2 space-y-1.5">
+                          {editItems.map((it, i) => (
+                            <div key={i} className="flex items-center gap-1.5">
+                              <input
+                                className="input flex-1 !py-1 text-xs"
+                                value={it.name}
+                                placeholder="藏品名"
+                                onChange={(e) => setItemField(i, "name", e.target.value)}
+                              />
+                              <input
+                                className="input w-16 !py-1 text-xs"
+                                type="number"
+                                value={it.grid_cells}
+                                onChange={(e) => setItemField(i, "grid_cells", e.target.value)}
+                              />
+                              <input
+                                className="input w-28 !py-1 text-xs"
+                                type="number"
+                                value={it.value}
+                                onChange={(e) => setItemField(i, "value", e.target.value)}
+                              />
+                              <button
+                                className="text-rose-400 hover:text-rose-500"
+                                onClick={() => removeItemRow(i)}
+                              >
+                                ✕
+                              </button>
+                            </div>
+                          ))}
+                          <div className="flex flex-wrap items-center gap-2 pt-1">
+                            <button className="btn-ghost !py-1 text-xs" onClick={addItemRow}>
+                              ＋ 添加红品
+                            </button>
+                            <button className="btn-primary !py-1 text-xs" onClick={() => saveItems(g)}>
+                              保存红品
+                            </button>
+                            <button className="btn-ghost !py-1 text-xs" onClick={() => setEditItemsOpen(null)}>
+                              取消
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="mt-2 flex max-h-40 flex-wrap items-start gap-2 overflow-y-auto">
+                          {g.items.map((it, i) => (
+                            <span
+                              key={i}
+                              className="rounded-lg border px-2.5 py-1 text-xs text-slate-200"
+                              style={{ borderColor: "var(--border-subtle)", background: "var(--bg-primary)" }}
+                            >
+                              {it.name} · {it.grid_cells}格 · {fmtMoney(it.trade_price ?? it.sys_price ?? 0)}
+                            </span>
+                          ))}
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              startEditItems(g);
+                            }}
+                            title="增删改该局的红品，保存后自动重算件数/格数/价值"
+                            className="rounded-lg border border-dashed px-2.5 py-1 text-xs text-indigo-400 hover:text-indigo-300"
+                            style={{ borderColor: "var(--border-accent)" }}
                           >
-                            {it.name} · {it.grid_cells}格 · {fmtMoney(it.trade_price ?? it.sys_price ?? 0)}
-                          </span>
-                        ))}
-                      </div>
+                            ✎ 编辑红品
+                          </button>
+                        </div>
+                      )}
                       {editGame === g.game_no && (
                         <div
                           className="mt-3 flex flex-wrap items-end gap-2 rounded-lg p-2.5"
