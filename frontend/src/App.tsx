@@ -2,23 +2,17 @@ import { useEffect, useState } from "react";
 import { api } from "./api";
 import AnnotatePage from "./pages/AnnotatePage";
 import CatalogPage from "./pages/CatalogPage";
-import CnnPage from "./pages/CnnPage";
 import EstimatePage from "./pages/EstimatePage";
-import LearnPage from "./pages/LearnPage";
 import ModelPage from "./pages/ModelPage";
-import OcrPage from "./pages/OcrPage";
 import RecordsPage from "./pages/RecordsPage";
 
-type PageKey = "estimate" | "records" | "model" | "catalog" | "cnn" | "ocr" | "learn" | "annotate";
+type PageKey = "estimate" | "records" | "model" | "catalog" | "annotate";
 
 const NAV: { key: PageKey; label: string; icon: string }[] = [
   { key: "estimate", label: "新对局估值", icon: "⚡" },
   { key: "records", label: "历史复盘", icon: "📚" },
   { key: "model", label: "模型面板", icon: "🧠" },
   { key: "catalog", label: "图鉴管理", icon: "🗂️" },
-  { key: "cnn", label: "棋盘 CNN", icon: "🔲" },
-  { key: "ocr", label: "截图识别", icon: "📷" },
-  { key: "learn", label: "图像学习", icon: "🖱️" },
   { key: "annotate", label: "标注校准", icon: "🎯" },
 ];
 
@@ -26,11 +20,6 @@ export default function App() {
   const [page, setPage] = useState<PageKey>("estimate");
   const [health, setHealth] = useState<{ catalog: number; games: number } | null>(null);
   const [online, setOnline] = useState<boolean | null>(null);
-
-  const goLearn = (queue: { name: string; cells: number }[]) => {
-    sessionStorage.setItem("learnQueue", JSON.stringify(queue));
-    setPage("learn");
-  };
 
   useEffect(() => {
     const check = () => {
@@ -114,10 +103,7 @@ export default function App() {
           {page === "estimate" && <EstimatePage />}
           {page === "records" && <RecordsPage />}
           {page === "model" && <ModelPage />}
-          {page === "catalog" && <CatalogPage onGoLearn={goLearn} />}
-          {page === "cnn" && <CnnPage />}
-          {page === "ocr" && <OcrPage />}
-          {page === "learn" && <LearnPage />}
+          {page === "catalog" && <CatalogPage />}
           {page === "annotate" && <AnnotatePage />}
         </div>
       </main>

@@ -5,7 +5,7 @@ import Chart from "../components/Chart";
 import type { CatalogResp, VisionItem } from "../types";
 import { fmtMoney } from "../utils";
 
-export default function CatalogPage({ onGoLearn }: { onGoLearn: (q: { name: string; cells: number }[]) => void }) {
+export default function CatalogPage() {
   const [cat, setCat] = useState<CatalogResp | null>(null);
   const [msg, setMsg] = useState("");
   const [gallery, setGallery] = useState<VisionItem[]>([]);
@@ -155,17 +155,6 @@ export default function CatalogPage({ onGoLearn }: { onGoLearn: (q: { name: stri
       else next.add(catId);
       return next;
     });
-  };
-
-  const goLearnSelected = () => {
-    const q = gallery
-      .filter((g) => needLearn.has(g.cat_id))
-      .map((g) => ({ name: g.name, cells: g.grid_cells }));
-    if (q.length === 0) {
-      setMsg("请先勾选需要学习的藏品");
-      return;
-    }
-    onGoLearn(q);
   };
 
   const learnedChecked = gallery.filter((g) => needLearn.has(g.cat_id) && g.has_learn);
@@ -397,12 +386,6 @@ export default function CatalogPage({ onGoLearn }: { onGoLearn: (q: { name: stri
               </button>
             ))}
           </div>
-          <button
-            className="btn-primary !py-1.5 text-xs !bg-emerald-500 !shadow-emerald-500/20 hover:!bg-emerald-400"
-            onClick={goLearnSelected}
-          >
-            去学习选中（{needLearn.size}）
-          </button>
           <button
             className="btn-ghost !py-1.5 text-xs !border-rose-500/40 text-rose-600"
             onClick={deleteLearnSelected}
