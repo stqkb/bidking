@@ -12,7 +12,7 @@ import joblib
 import numpy as np
 from sklearn.ensemble import HistGradientBoostingRegressor
 from sklearn.gaussian_process import GaussianProcessRegressor
-from sklearn.gaussian_process.kernels import RBF, WhiteKernel
+from sklearn.gaussian_process.kernels import Matern, WhiteKernel
 from sklearn.linear_model import BayesianRidge
 
 from .config import MODELS_DIR
@@ -145,14 +145,22 @@ def _impute(feats: list[dict[str, Any]]) -> dict[str, float]:
 def _make_models():
     return {
         "bayes": BayesianRidge(),
+        # ARD Matern 核：每个特征一个长度尺度（自动学特征重要性），nu=2.5 允许轻微不光滑；
+        # n_restarts_optimizer 多次重启避免核超参落入局部最优（chrono 实测 MAPE 26.9%→20.0%）
         "gp": GaussianProcessRegressor(
-            kernel=1.0 * RBF(length_scale=1.0) + WhiteKernel(noise_level=0.1),
+            kernel=1.0 * Matern(nu=2.5, length_scale=np.ones(len(FEATURES)))
+                  + WhiteKernel(noise_level=0.05),
             normalize_y=True,
+            n_restarts_optimizer=5,
             random_state=0,
         ),
+        # 放宽 HGB 复杂度（原 depth=2/leaf=8 欠拟合）：提高容量 + 早停 + min_samples_leaf 防过拟合
         "hgb": HistGradientBoostingRegressor(
-            max_depth=2, max_leaf_nodes=8, max_iter=80, learning_rate=0.05,
-            l2_regularization=1.0, random_state=0,
+            max_depth=4, max_leaf_nodes=16, max_iter=200,
+            learning_rate=0.05, l2_regularization=0.5,
+            min_samples_leaf=3,
+            early_stopping=True, validation_fraction=0.15, n_iter_no_change=10,
+            random_state=0,
         ),
     }
 
