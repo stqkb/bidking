@@ -146,12 +146,12 @@ def _make_models():
     return {
         "bayes": BayesianRidge(),
         # ARD Matern 核：每个特征一个长度尺度（自动学特征重要性），nu=2.5 允许轻微不光滑；
-        # n_restarts_optimizer 多次重启避免核超参落入局部最优（chrono 实测 MAPE 26.9%→20.0%）
+        # n_restarts_optimizer=3 多次重启避免核超参落入局部最优（LOOCV 耗时主要来自 GP fit）
         "gp": GaussianProcessRegressor(
             kernel=1.0 * Matern(nu=2.5, length_scale=np.ones(len(FEATURES)))
                   + WhiteKernel(noise_level=0.05),
             normalize_y=True,
-            n_restarts_optimizer=5,
+            n_restarts_optimizer=3,
             random_state=0,
         ),
         # 放宽 HGB 复杂度（原 depth=2/leaf=8 欠拟合）：提高容量 + 早停 + min_samples_leaf 防过拟合
@@ -163,6 +163,29 @@ def _make_models():
             random_state=0,
         ),
     }
+
+
+def _find_gp(models) -> GaussianProcessRegressor | None:
+    return next((m for m in models if isinstance(m, GaussianProcessRegressor)), None)
+
+
+def _gp_interval(payload: dict[str, Any], X: np.ndarray, key: str,
+                 q: dict[str, float]) -> tuple[float, float]:
+    """GP 原生置信区间：逐样本 std × conformal 校准系数。
+
+    信息充分的输入 GP std 小 → 区间窄；信息稀少的输入 std 大 → 区间宽。
+    GP 不可用时回退到 LOOCV 残差 × INTERVAL_WIDEN（原启发式）。
+    """
+    gp = payload.get(f"gp_{key}")
+    scale = (payload.get("gp_scale") or {}).get(key, 1.0)
+    if gp is not None and isinstance(scale, (int, float)) and scale > 0:
+        try:
+            _, std = gp.predict(X, return_std=True)
+            half = 1.28 * float(std[0]) * scale
+            return -half, half
+        except Exception:  # noqa: BLE001
+            pass
+    return q["q10"] * INTERVAL_WIDEN, q["q90"] * INTERVAL_WIDEN
 
 
 def _fit_ensemble(X: np.ndarray, y: np.ndarray) -> list[Any]:
@@ -323,9 +346,37 @@ def retrain(conn) -> dict[str, Any]:
             for k, v in zip(FEATURES, imp):
                 importance[k] = importance.get(k, 0.0) + float(v)
             break
+
+    # ---- GP 原生置信区间（conformal 校准）----
+    # 在保留集（chrono 的 30%）上计算校准系数：
+    # scale = P80(|残差| / gp_std)，使 1.28×std×scale 的 90% 区间覆盖达标
+    gp_red = _find_gp(models_r)
+    gp_full = _find_gp(models_f)
+    gp_scale = {"red": 1.0, "full": 1.0}
+    gp_cov: dict[str, float | None] = {"red": None, "full": None}
+    cut = max(1, int(n * 0.7))
+    te = list(range(cut, n))
+    for key, gp, Y in (("red", gp_red, YR), ("full", gp_full, YF)):
+        if gp is None or len(te) < 3:
+            continue
+        try:
+            m, s = gp.predict(X[te], return_std=True)
+            resid = np.abs(Y[te] - m)
+            scale = float(np.quantile(resid / (s + 1e-8), 0.85))  # 85% 分位，90% 区间覆盖达标
+            gp_scale[key] = max(scale, 0.3)  # 防区间过窄
+            lo = m - 1.28 * s * gp_scale[key]
+            hi = m + 1.28 * s * gp_scale[key]
+            gp_cov[key] = round(float(np.mean((Y[te] >= lo) & (Y[te] <= hi))), 3)
+        except Exception:  # noqa: BLE001
+            continue
+
     payload = {
         "models_red": models_r,
         "models_full": models_f,
+        "gp_red": gp_red,
+        "gp_full": gp_full,
+        "gp_scale": gp_scale,
+        "gp_coverage": gp_cov,
         "feature_names": FEATURES,
         "impute": med,
         "loocv": loocv,
@@ -341,6 +392,8 @@ def retrain(conn) -> dict[str, Any]:
         "loocv": loocv,
         "chrono": chrono,
         "importance": importance,
+        "gp_scale": gp_scale,
+        "gp_coverage": gp_cov,
         "trained_at": payload["trained_at"],
     }
     conn.execute(
@@ -438,21 +491,22 @@ def predict(conn, inputs: dict[str, Any], rule: dict[str, Any]) -> dict[str, Any
     q = payload["loocv"]["residual_q"]
     red_log = feat["rule_red_log"] + res_r
     full_log = feat["rule_full_log"] + res_f
-    q10 = q["q10"] * INTERVAL_WIDEN
-    q90 = q["q90"] * INTERVAL_WIDEN
+    # GP 原生置信区间（逐样本 std × conformal 校准），不可用时回退 LOOCV×1.5
+    q10r, q90r = _gp_interval(payload, X, "red", q)
+    q10f, q90f = _gp_interval(payload, X, "full", q)
     return {
         "available": True,
         "n": payload["n"],
         "red": {
             "ev": float(math.exp(red_log)),
-            "p10": float(math.exp(red_log + q10)),
-            "p90": float(math.exp(red_log + q90)),
+            "p10": float(math.exp(red_log + q10r)),
+            "p90": float(math.exp(red_log + q90r)),
             "p50": float(math.exp(red_log)),
         },
         "full": {
             "ev": float(math.exp(full_log)),
-            "p10": float(math.exp(full_log + q10)),
-            "p90": float(math.exp(full_log + q90)),
+            "p10": float(math.exp(full_log + q10f)),
+            "p90": float(math.exp(full_log + q90f)),
             "p50": float(math.exp(full_log)),
         },
         "residual_red": float(res_r),
