@@ -478,7 +478,7 @@ def match_crop(crop_path: str | Path, topk: int = 5) -> dict[str, Any]:
         nm = m["name"]
         src = m.get("source", "ocr")
         d = per_name.setdefault(nm, {"learn": None, "ocr": None})
-        cand = {"score": s, "path": m["path"], "cells": m["grid_cells"]}
+        cand = {"score": s, "path": m["path"], "cells": m.get("grid_cells", 0)}  # 重建样本可能缺 grid_cells
         cur = d[src]
         if cur is None or s > cur["score"]:
             d[src] = cand
@@ -530,7 +530,7 @@ def match_crops(crops: list[Image.Image], topk: int = 5) -> list[dict[str, Any]]
             nm = m["name"]
             src = m.get("source", "ocr")
             d = per_name.setdefault(nm, {"learn": None, "ocr": None})
-            cand = {"score": s, "path": m["path"], "cells": m["grid_cells"]}
+            cand = {"score": s, "path": m["path"], "cells": m.get("grid_cells", 0)}
             cur = d[src]
             if cur is None or s > cur["score"]:
                 d[src] = cand
