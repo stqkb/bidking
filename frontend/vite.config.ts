@@ -10,6 +10,9 @@ export default defineConfig({
       "/api": "http://127.0.0.1:8000",
     },
   },
+  optimizeDeps: {
+    include: ["echarts", "react", "react-dom"],
+  },
   build: {
     outDir: "dist",
     chunkSizeWarningLimit: 1200,
