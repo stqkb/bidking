@@ -269,10 +269,11 @@ export default function RecordsPage() {
   })();
 
   // 估值准确率：预测/实际 ×100%，绿=90-99%，黄=80-89%/101-110%，红=其他
+  // 注意：ECharts canvas 不支持 CSS 变量作为颜色，必须用具体色值
   const accColor = (r: number) => {
-    if (r >= 90 && r <= 99) return "var(--success)";
-    if ((r >= 80 && r < 90) || (r > 99 && r <= 110)) return "var(--warning)";
-    return "var(--danger)";
+    if (r >= 90 && r <= 99) return "#4a9a6a";
+    if ((r >= 80 && r < 90) || (r > 99 && r <= 110)) return "#9a8a4a";
+    return "#9a4a4a";
   };
   const accuracyChartOption = (() => {
     if (accuracy.length === 0) return null;
@@ -284,7 +285,12 @@ export default function RecordsPage() {
           return `局 ${a.game_no}：预测 ${fmtWan(a.pred)} / 实际 ${fmtWan(a.actual)}<br/>准确率 ${a.ratio}%<br/>均格 ${a.red_avg} · 样本「${a.item}」`;
         },
       },
-      grid: { left: 64, right: 20, top: 20, bottom: 40 },
+      legend: {
+        data: ["90-99%", "80-89% / 101-110%", "其他"],
+        textStyle: { color: "#8a8890" },
+        top: 0,
+      },
+      grid: { left: 64, right: 20, top: 32, bottom: 40 },
       xAxis: { type: "value", name: "局号", axisLabel: { color: "#94a3b8" }, splitLine: { lineStyle: { color: "#1e293b" } } },
       yAxis: {
         type: "value",
@@ -296,8 +302,9 @@ export default function RecordsPage() {
       },
       series: [
         {
-          type: "bar",
-          barWidth: "55%",
+          type: "line",
+          symbolSize: 9,
+          lineStyle: { color: "#3a3a44", width: 1.5 },
           data: accuracy.map((a) => ({
             value: [a.game_no, a.ratio],
             itemStyle: { color: accColor(a.ratio) },
@@ -358,7 +365,7 @@ export default function RecordsPage() {
         </Card>
       ) : (
         accuracyChartOption && (
-          <Card title="估值准确率" desc="柱高 = 预测/实际 ×100%；绿 = 90-99%，黄 = 80-89% / 101-110%，红 = 其他">
+          <Card title="估值准确率" desc="折线点 = 预测/实际 ×100%；绿 = 90-99%，黄 = 80-89% / 101-110%，红 = 其他">
             <Chart option={accuracyChartOption} height={280} />
           </Card>
         )

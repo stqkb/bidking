@@ -107,21 +107,23 @@ def games() -> dict[str, Any]:
 @router.get("/api/games/accuracy")
 def game_accuracy() -> dict[str, Any]:
     """估值准确率回测：每局用「平均格数 + 随机一件红品」构造输入走估值引擎，
-    预测全场 / 实际全场 = 准确率（ratio%）。红品随机选择以局号为种子，保证可复现。"""
+    预测全场 / 实际全场 = 准确率（ratio%）。红品随机选择以局号为种子，保证可复现。
+    多线程并行回测（估值引擎为 numpy 计算，线程可并行加速）。"""
     import random
+    from concurrent.futures import ThreadPoolExecutor
 
     with db(readonly=True) as conn:
         rows = conn.execute(
             "SELECT game_no, red_avg, red_count, full_value, items_json "
             "FROM game_records ORDER BY game_no"
         ).fetchall()
-    out: list[dict[str, Any]] = []
-    for r in rows:
+
+    def _backtest(r) -> dict[str, Any] | None:
         if not r["red_avg"] or not r["full_value"]:
-            continue
+            return None
         items = json.loads(r["items_json"] or "[]")
         if not items:
-            continue
+            return None
         rng = random.Random(int(r["game_no"]))
         it = rng.choice(items)
         known = {
@@ -137,17 +139,21 @@ def game_accuracy() -> dict[str, Any]:
             })
             pred = est.get("full", {}).get("ev")
         except Exception:  # noqa: BLE001
-            continue
+            return None
         actual = float(r["full_value"])
-        if pred and actual > 0:
-            out.append({
-                "game_no": int(r["game_no"]),
-                "red_avg": float(r["red_avg"]),
-                "item": known["name"],
-                "pred": float(pred),
-                "actual": actual,
-                "ratio": round(float(pred) / actual * 100, 1),
-            })
+        if not pred or actual <= 0:
+            return None
+        return {
+            "game_no": int(r["game_no"]),
+            "red_avg": float(r["red_avg"]),
+            "item": known["name"],
+            "pred": float(pred),
+            "actual": actual,
+            "ratio": round(float(pred) / actual * 100, 1),
+        }
+
+    with ThreadPoolExecutor(max_workers=min(4, max(1, len(rows)))) as ex:
+        out = [x for x in ex.map(_backtest, rows) if x is not None]
     return {"accuracy": out}
 
 
