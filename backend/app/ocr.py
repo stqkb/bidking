@@ -278,7 +278,19 @@ def _board_items(conn, boxes: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 m["x1"] = max(m["x1"], b["x1"])
                 placed = True
                 break
+        # P1-a 水平碎片合并：同一行（y 接近）、x 相邻的框合并为完整名称
+        # 如「蓝锥」+「矿晶体」→「蓝锥矿晶体」，此前只做垂直合并导致碎片无法匹配图鉴。
+        h_placed = False
         if not placed:
+            for m in merged:
+                if abs(m["cy"] - b["cy"]) < 25 and 0 < b["cx"] - m["cx"] < 90:
+                    m["text"] += t
+                    m["x1"] = max(m["x1"], b["x1"])
+                    m["y0"] = min(m["y0"], b["y0"])
+                    m["y1"] = max(m["y1"], b["y1"])
+                    h_placed = True
+                    break
+        if not placed and not h_placed:
             merged.append({
                 "text": t, "cx": b["cx"], "cy": b["cy"], "conf": b["conf"],
                 "x0": b["x0"], "y0": b["y0"], "x1": b["x1"], "y1": b["y1"],
@@ -625,7 +637,7 @@ def recognize_single(conn, image_path: str) -> dict[str, Any]:
     R, G, B = rgb[..., 0], rgb[..., 1], rgb[..., 2]
     crops_dir = DATA_DIR / "auction_crops" / "single"
     crops_dir.mkdir(parents=True, exist_ok=True)
-    VISUAL_THRESHOLD = 0.85
+    VISUAL_THRESHOLD = 0.80  # P1-b：0.85→0.80，视觉高置信即可确认图鉴藏品
     for i, it in enumerate(items):
         nb = it.get("name_box") or {}
         red_ratio = _red_cell_ratio(rgb, nb) if nb else 0.0
@@ -647,6 +659,18 @@ def recognize_single(conn, image_path: str) -> dict[str, Any]:
                 all_v = vision.match_crop(cp, topk=5).get("matches", [])
                 high = [x for x in all_v if x["score"] >= VISUAL_THRESHOLD]
                 it["visual"] = high[:1]
+                # P1-b 视觉补名：OCR 碎片未能匹配图鉴时，用高置信视觉候选的
+                # 图鉴标准名/格数/价值覆盖，避免碎片名导致红品被漏判。
+                if high and not it.get("matched"):
+                    v = high[0]
+                    m2 = _match_by_name(conn, v["name"])
+                    if m2:
+                        it["name"] = m2[0]["name"]
+                        it["matches"] = m2
+                        it["matched"] = True
+                        it["price"] = m2[0].get("value") or it.get("price")
+                        it["grid_cells"] = m2[0]["grid_cells"] or it.get("grid_cells")
+                        it["visual_source_cells"] = True
                 # 名称未匹配上图鉴时，用高置信视觉结果补格数/价值
                 if not it.get("grid_cells") and high:
                     it["grid_cells"] = high[0]["grid_cells"]
@@ -657,7 +681,11 @@ def recognize_single(conn, image_path: str) -> dict[str, Any]:
             it["visual"] = []
         # 红品判定：红色格子背景 + 名称能对上图鉴（或高置信视觉匹配），
         # 排除 OCR 碎片（如单字「国」、符号残留「47.」）误报为红品。
-        it["is_red"] = red_ratio >= 0.30 and (it.get("matched") or bool(it.get("visual")))
+        # P1-b 视觉高置信（≥0.80）且已确认图鉴藏品时，红品判定阈值放宽到 0.15
+        # （视觉已确认是图鉴藏品，红格子检测区域小/颜色偏时不再因 red_ratio 卡掉）。
+        visual_high = bool(it.get("visual")) and (it["visual"][0].get("score") or 0) >= 0.80
+        red_thr = 0.15 if (it.get("matched") and visual_high) else 0.30
+        it["is_red"] = red_ratio >= red_thr and (it.get("matched") or bool(it.get("visual")))
     red_items = [it for it in items if it.get("is_red")]
     red_count = len(red_items)
     total_cells = sum(int(it.get("grid_cells") or 0) for it in red_items)
