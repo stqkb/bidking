@@ -265,7 +265,33 @@ export default function RecordsPage() {
         </div>
       )}
 
-      <Card title={`历史对局（${games.length} 局）`} desc="来自你的实战记录，点击行展开红品清单">
+      {(totalChartOption || profitChartOption || wonChartOption) && (
+        <Card
+          title="收益走势"
+          desc="三个走势图分开查看：① 历史对局总价值 ② 历史对局收益 ③ 本人竞拍成功的收益（在时间线对局上标记本人是否拍下）"
+        >
+          {totalChartOption && (
+            <div className="mb-4">
+              <div className="mb-1 text-xs font-medium text-amber-400">① 历史对局总价值</div>
+              <Chart option={totalChartOption} height={200} />
+            </div>
+          )}
+          {profitChartOption && (
+            <div className="mb-4">
+              <div className="mb-1 text-xs font-medium text-sky-400">② 历史对局收益</div>
+              <Chart option={profitChartOption} height={200} />
+            </div>
+          )}
+          {wonChartOption && (
+            <div>
+              <div className="mb-1 text-xs font-medium text-emerald-400">③ 本人竞拍成功的收益（按拍下次序 1..N，悬停显示原局号）</div>
+              <Chart option={wonChartOption} height={200} />
+            </div>
+          )}
+        </Card>
+      )}
+
+      <Card title={`历史对局（${games.length} 局）`} desc="来自你的实战记录，点击对局展开红品明细">
         <div className="mb-3 flex flex-wrap items-center gap-2">
           <select
             className="input w-36 !py-1 text-xs"
@@ -330,95 +356,110 @@ export default function RecordsPage() {
                       <div className="text-[11px] text-slate-500">红品</div>
                       <div className="text-sm text-slate-300">{g.red_count} 件 · 均格 {g.red_avg}</div>
                     </div>
-                    <div>
-                      <div className="text-[11px] text-slate-500">总价值</div>
-                      <div className="font-mono text-sm text-slate-300">{fmtMoney(g.full_value)}</div>
-                    </div>
-                    <div className="ml-auto text-right">
-                      <div className="text-[11px] text-slate-500">成交价 {g.deal_price != null ? fmtMoney(g.deal_price) : "—"}</div>
-                      <div
-                        className="font-mono text-base font-medium"
-                        style={{
-                          color:
-                            g.profit === null
-                              ? "var(--text-tertiary)"
-                              : g.profit >= 0
-                                ? "var(--success)"
-                                : "var(--danger)",
-                        }}
-                      >
-                        {g.profit === null ? "—" : g.profit >= 0 ? `+${fmtMoney(g.profit)}` : fmtMoney(g.profit)}
+                    <div className="ml-auto flex items-center gap-3">
+                      <div className="text-right">
+                        <div
+                          className="font-mono text-base font-medium"
+                          style={{
+                            color:
+                              g.profit === null
+                                ? "var(--text-tertiary)"
+                                : g.profit >= 0
+                                  ? "var(--success)"
+                                  : "var(--danger)",
+                          }}
+                        >
+                          {g.profit === null ? "—" : g.profit >= 0 ? `+${fmtMoney(g.profit)}` : fmtMoney(g.profit)}
+                        </div>
+                        {g.profit_ok === 0 && (
+                          <span
+                            className="mt-0.5 inline-block rounded bg-rose-500/15 px-1 py-0.5 text-[10px] text-rose-400"
+                            title="收益核验不通过（收益 ≠ 总价值 − 成交价），未进入模型训练"
+                          >
+                            ⚠核验不过
+                          </span>
+                        )}
                       </div>
-                      {g.profit_ok === 0 && (
-                        <span
-                          className="mt-0.5 inline-block rounded bg-rose-500/15 px-1 py-0.5 text-[10px] text-rose-400"
-                          title="收益核验不通过（收益 ≠ 总价值 − 成交价），未进入模型训练"
-                        >
-                          ⚠核验不过
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          toggleWon(g);
-                        }}
-                        title="点击切换：未标记 → 本人竞拍成功 → 未成功（收益规律仅统计成功局）"
-                        className={`rounded px-1.5 py-0.5 text-[11px] transition ${
-                          g.won === 1
-                            ? "bg-emerald-500/15 text-emerald-600"
-                            : g.won === 0
-                              ? "bg-slate-500/15 text-slate-400"
-                              : "bg-ink-800 text-slate-500 hover:text-slate-400"
-                        }`}
-                      >
-                        {g.won === 1 ? "✓ 成功" : g.won === 0 ? "未成功" : "未标记"}
-                      </button>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          startEditGame(g);
-                        }}
-                        title="修改总价值/成交价/收益"
-                        className={`rounded px-1.5 py-0.5 text-[11px] transition ${
-                          g.profit_ok === 0
-                            ? "bg-rose-500/20 text-rose-300 hover:bg-rose-500/30"
-                            : "bg-indigo-500/15 text-indigo-400 hover:bg-indigo-500/25"
-                        }`}
-                      >
-                        ✎ 修改
-                      </button>
-                      {delConfirm === g.game_no ? (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            removeGame(g);
-                          }}
-                          className="rounded bg-rose-500/20 px-1.5 py-0.5 text-[11px] text-rose-300 hover:bg-rose-500/30"
-                        >
-                          确认删除？
-                        </button>
-                      ) : (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setDelConfirm(g.game_no);
-                            setTimeout(() => {
-                              setDelConfirm((c) => (c === g.game_no ? null : c));
-                            }, 4000);
-                          }}
-                          title="删除该局（剩余局号将重新连续编号）"
-                          className="rounded px-1.5 py-0.5 text-[11px] text-slate-400 hover:bg-rose-500/10 hover:text-rose-400"
-                        >
-                          🗑
-                        </button>
-                      )}
+                      <span className="text-slate-500">{open === g.game_no ? "▾" : "▸"}</span>
                     </div>
                   </div>
                   {open === g.game_no && (
                     <div className="mt-3 border-t pt-3" style={{ borderColor: "var(--border-subtle)" }}>
-                      <div className="flex flex-wrap gap-2">
+                      {/* 关键数据行 */}
+                      <div className="flex flex-wrap gap-x-8 gap-y-2 text-sm">
+                        <div>
+                          <span className="text-xs text-slate-500">红品价值 </span>
+                          <span className="font-mono text-slate-200">{fmtMoney(g.red_value)}</span>
+                        </div>
+                        <div>
+                          <span className="text-xs text-slate-500">总价值 </span>
+                          <span className="font-mono text-slate-200">{fmtMoney(g.full_value)}</span>
+                        </div>
+                        <div>
+                          <span className="text-xs text-slate-500">成交价 </span>
+                          <span className="font-mono text-slate-200">{g.deal_price != null ? fmtMoney(g.deal_price) : "—"}</span>
+                        </div>
+                      </div>
+                      {/* 操作按钮 */}
+                      <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleWon(g);
+                          }}
+                          title="点击切换：未标记 → 本人竞拍成功 → 未成功（收益规律仅统计成功局）"
+                          className={`rounded px-1.5 py-0.5 text-[11px] transition ${
+                            g.won === 1
+                              ? "bg-emerald-500/15 text-emerald-600"
+                              : g.won === 0
+                                ? "bg-slate-500/15 text-slate-400"
+                                : "bg-ink-800 text-slate-500 hover:text-slate-400"
+                          }`}
+                        >
+                          {g.won === 1 ? "✓ 成功" : g.won === 0 ? "未成功" : "未标记"}
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            startEditGame(g);
+                          }}
+                          title="修改总价值/成交价/收益"
+                          className={`rounded px-1.5 py-0.5 text-[11px] transition ${
+                            g.profit_ok === 0
+                              ? "bg-rose-500/20 text-rose-300 hover:bg-rose-500/30"
+                              : "bg-indigo-500/15 text-indigo-400 hover:bg-indigo-500/25"
+                          }`}
+                        >
+                          ✎ 修改
+                        </button>
+                        {delConfirm === g.game_no ? (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              removeGame(g);
+                            }}
+                            className="rounded bg-rose-500/20 px-1.5 py-0.5 text-[11px] text-rose-300 hover:bg-rose-500/30"
+                          >
+                            确认删除？
+                          </button>
+                        ) : (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setDelConfirm(g.game_no);
+                              setTimeout(() => {
+                                setDelConfirm((c) => (c === g.game_no ? null : c));
+                              }, 4000);
+                            }}
+                            title="删除该局（剩余局号将重新连续编号）"
+                            className="rounded px-1.5 py-0.5 text-[11px] text-slate-400 hover:bg-rose-500/10 hover:text-rose-400"
+                          >
+                            🗑
+                          </button>
+                        )}
+                      </div>
+                      {/* 红品明细（限高滚动，避免过多） */}
+                      <div className="mt-2 flex max-h-40 flex-wrap gap-2 overflow-y-auto">
                         {g.items.map((it, i) => (
                           <span
                             key={i}
@@ -477,32 +518,6 @@ export default function RecordsPage() {
           </div>
         </div>
       </Card>
-
-      {(totalChartOption || profitChartOption || wonChartOption) && (
-        <Card
-          title="收益走势"
-          desc="三个走势图分开查看：① 历史对局总价值 ② 历史对局收益 ③ 本人竞拍成功的收益（在表格「竞拍」列标记本人是否拍下）"
-        >
-          {totalChartOption && (
-            <div className="mb-4">
-              <div className="mb-1 text-xs font-medium text-amber-400">① 历史对局总价值</div>
-              <Chart option={totalChartOption} height={200} />
-            </div>
-          )}
-          {profitChartOption && (
-            <div className="mb-4">
-              <div className="mb-1 text-xs font-medium text-sky-400">② 历史对局收益</div>
-              <Chart option={profitChartOption} height={200} />
-            </div>
-          )}
-          {wonChartOption && (
-            <div>
-              <div className="mb-1 text-xs font-medium text-emerald-400">③ 本人竞拍成功的收益（按拍下次序 1..N，悬停显示原局号）</div>
-              <Chart option={wonChartOption} height={200} />
-            </div>
-          )}
-        </Card>
-      )}
 
       {chartOption && (
         <Card title="我的记录：预测 vs 实际" desc="已完成结算的预测误差（虚线为理想一致线）">
