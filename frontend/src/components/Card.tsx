@@ -10,11 +10,15 @@ interface Props {
 
 export function Card({ title, desc, right, children, className = "" }: Props) {
   return (
-    <section className={`card p-5 ${className}`}>
+    <section className={`card p-6 ${className}`}>
       {(title || right) && (
         <header className="mb-4 flex items-start justify-between gap-3">
           <div>
-            {title && <h3 className="text-sm font-semibold text-slate-800">{title}</h3>}
+            {title && (
+              <h3 className="text-[13px] font-medium uppercase tracking-[0.05em] text-slate-500">
+                {title}
+              </h3>
+            )}
             {desc && <p className="mt-0.5 text-xs text-slate-500">{desc}</p>}
           </div>
           {right}
@@ -46,7 +50,7 @@ export function Stat({
   return (
     <div className="rounded-xl border border-ink-700/70 bg-ink-900/60 px-4 py-3">
       <div className="text-xs text-slate-500">{label}</div>
-      <div className={`mt-1 text-xl font-semibold tabular-nums ${tones[tone]}`}>{value}</div>
+      <div className={`mt-1 font-mono text-xl font-medium tabular-nums ${tones[tone]}`}>{value}</div>
       {sub && <div className="mt-0.5 text-xs text-slate-500">{sub}</div>}
     </div>
   );

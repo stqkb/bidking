@@ -2,8 +2,22 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ---- 设计令牌：优雅克制的高端工具感 ---- */
 :root {
-  color-scheme: light;
+  --bg-primary: #111114;
+  --bg-secondary: #1a1a1f;
+  --bg-tertiary: #222228;
+  --border-subtle: #2a2a32;
+  --border-accent: #3a3a44;
+  --text-primary: #e8e6e3;
+  --text-secondary: #8a8890;
+  --text-tertiary: #5a5860;
+  --accent: #c9a962;
+  --accent-soft: rgba(201, 169, 98, 0.12);
+  --success: #4a9a6a;
+  --danger: #9a4a4a;
+  --warning: #9a8a4a;
+  color-scheme: dark;
 }
 
 html,
@@ -13,10 +27,11 @@ body,
 }
 
 body {
-  @apply bg-ink-950 text-slate-700 antialiased;
-  background-image:
-    radial-gradient(1200px 600px at 80% -10%, rgba(99, 102, 241, 0.1), transparent 60%),
-    radial-gradient(900px 500px at -10% 110%, rgba(16, 185, 129, 0.07), transparent 55%);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: Inter, "Noto Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+  font-weight: 400;
+  -webkit-font-smoothing: antialiased;
 }
 
 ::-webkit-scrollbar {
@@ -24,7 +39,8 @@ body {
   height: 9px;
 }
 ::-webkit-scrollbar-thumb {
-  @apply rounded-full bg-slate-300;
+  border-radius: 8px;
+  background: var(--border-accent);
 }
 ::-webkit-scrollbar-track {
   background: transparent;
@@ -40,22 +56,146 @@ input[type="number"] {
   appearance: textfield;
 }
 
+/* ---- 组件：卡片 ---- */
 .card {
-  @apply rounded-2xl border border-ink-700/80 bg-ink-850/80 shadow-[0_8px_30px_rgba(15,23,42,0.08)] backdrop-blur;
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-secondary);
+  border-radius: 8px;
+  box-shadow: none;
 }
 
 .field-label {
-  @apply mb-1.5 block text-xs font-medium tracking-wide text-slate-500;
+  display: block;
+  margin-bottom: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  color: var(--text-secondary);
 }
 
+/* ---- 组件：输入框（无边框，focus 底部 2px accent 细线） ---- */
 .input {
-  @apply w-full rounded-xl border border-ink-700 bg-white px-3 py-2 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-indigo-500/70 focus:ring-2 focus:ring-indigo-500/20;
+  width: 100%;
+  background: var(--bg-tertiary);
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-size: 14px;
+  color: var(--text-primary);
+  outline: none;
+  transition: background-color 0.15s ease, box-shadow 0.15s ease;
+}
+.input::placeholder {
+  color: var(--text-tertiary);
+}
+.input:focus {
+  background: var(--bg-tertiary);
+  box-shadow: inset 0 -2px 0 var(--accent);
+}
+select.input {
+  appearance: auto;
 }
 
+/* ---- 组件：按钮 ---- */
 .btn-primary {
-  @apply inline-flex items-center justify-center gap-2 rounded-xl bg-indigo-500 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-indigo-500/20 transition hover:bg-indigo-400 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 36px;
+  padding: 0 16px;
+  border: none;
+  border-radius: 6px;
+  background: var(--accent);
+  color: #111114;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: filter 0.15s ease;
+}
+.btn-primary:hover {
+  filter: brightness(1.08);
+}
+.btn-primary:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
 }
 
 .btn-ghost {
-  @apply inline-flex items-center justify-center gap-2 rounded-xl border border-ink-700 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:border-indigo-500/50 hover:text-indigo-600 disabled:cursor-not-allowed disabled:opacity-50;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 36px;
+  padding: 0 16px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 400;
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+.btn-ghost:hover {
+  color: var(--text-primary);
+  border-color: var(--border-accent);
+}
+.btn-ghost:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+/* ---- 旧浅色主题遗留色值的深色兜底 ---- */
+.text-slate-900,
+.text-slate-800,
+.text-slate-700,
+.text-slate-600 {
+  color: var(--text-primary);
+}
+.text-slate-500,
+.text-slate-400 {
+  color: var(--text-secondary);
+}
+.text-slate-300,
+.text-slate-200,
+.text-slate-100 {
+  color: var(--text-primary);
+}
+.text-indigo-600,
+.text-indigo-500,
+.text-indigo-400 {
+  color: var(--accent);
+}
+.bg-indigo-500,
+.bg-indigo-600 {
+  background: var(--accent);
+  color: #111114;
+}
+.bg-indigo-500\/10,
+.bg-indigo-500\/15,
+.bg-indigo-500\/20,
+.bg-indigo-500\/25 {
+  background: var(--accent-soft);
+}
+.border-indigo-500\/40,
+.border-indigo-500\/50,
+.border-indigo-500\/60 {
+  border-color: rgba(201, 169, 98, 0.4);
+}
+.text-emerald-600,
+.text-emerald-500,
+.text-emerald-400 {
+  color: var(--success);
+}
+.text-rose-600,
+.text-rose-500,
+.text-rose-400,
+.text-rose-300 {
+  color: var(--danger);
+}
+.text-amber-600,
+.text-amber-500,
+.text-amber-400 {
+  color: var(--warning);
 }

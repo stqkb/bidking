@@ -26,7 +26,19 @@ export default function Chart({ option, height = 260, className }: Props) {
   }, []);
 
   useEffect(() => {
-    chartRef.current?.setOption(option, true);
+    if (!chartRef.current) return;
+    // 统一深色主题：背景透明、tooltip 用面板色（业务侧已指定的样式保持优先）
+    const merged = {
+      backgroundColor: "transparent",
+      ...option,
+      tooltip: {
+        backgroundColor: "#1a1a1f",
+        borderColor: "#2a2a32",
+        textStyle: { color: "#e8e6e3", fontSize: 12 },
+        ...(option?.tooltip ?? {}),
+      },
+    };
+    chartRef.current.setOption(merged, true);
   }, [option]);
 
   return <div ref={ref} className={className} style={{ height }} />;

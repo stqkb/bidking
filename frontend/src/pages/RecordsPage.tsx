@@ -296,68 +296,69 @@ export default function RecordsPage() {
           </select>
           <span className="text-[11px] text-slate-500">当前 {filteredGames.length} 局</span>
         </div>
-        <div className="max-h-[460px] overflow-auto">
-          <table className="w-full text-sm">
-            <thead className="sticky top-0 bg-ink-850">
-              <tr className="text-left text-xs text-slate-500">
-                <th className="py-2 pr-3">局</th>
-                <th className="py-2 pr-3">格数组合</th>
-                <th className="py-2 pr-3">件数</th>
-                <th className="py-2 pr-3">均格</th>
-                <th className="py-2 pr-3">红品价值</th>
-                <th className="py-2 pr-3">全场总价值</th>
-                <th className="py-2 pr-3">成交价</th>
-                <th className="py-2 pr-3">盈亏</th>
-                <th className="py-2 pr-3">竞拍</th>
-                <th className="py-2">删除</th>
-              </tr>
-            </thead>
-            <tbody className="tabular-nums">
-              {filteredGames.map((g) => (
-                <Fragment key={g.game_no}>
-                  <tr
-                    onClick={() => setOpen(open === g.game_no ? null : g.game_no)}
-                    className="cursor-pointer border-t border-ink-700/60 text-slate-600 transition hover:bg-ink-800/50"
-                  >
-                    <td className="py-2 pr-3">{g.game_no}</td>
-                    <td className="py-2 pr-3 text-slate-500">{g.grid_combo}</td>
-                    <td className="py-2 pr-3">{g.red_count}</td>
-                    <td className="py-2 pr-3">{g.red_avg}</td>
-                    <td className="py-2 pr-3">{fmtMoney(g.red_value)}</td>
-                    <td className="py-2 pr-3">{fmtMoney(g.full_value)}</td>
-                    <td className="py-2 pr-3">{fmtMoney(g.deal_price)}</td>
-                    <td className="py-2">
-                      {g.profit === null ? (
-                        <span className="text-slate-400">—</span>
-                      ) : g.profit >= 0 ? (
-                        <span className="text-emerald-600">+{fmtMoney(g.profit)}</span>
-                      ) : (
-                        <span className="text-rose-600">{fmtMoney(g.profit)}</span>
-                      )}
+        <div className="relative">
+          {/* 时间线竖线 */}
+          <div className="absolute bottom-4 left-[9px] top-4 w-px" style={{ background: "var(--border-subtle)" }} />
+          <div className="space-y-3">
+            {filteredGames.map((g) => (
+              <div key={g.game_no} className="relative pl-8">
+                {/* 节点 */}
+                <div
+                  className="absolute left-0 top-[22px] h-[19px] w-[19px] rounded-full border-2"
+                  style={{ borderColor: "var(--accent)", background: "var(--bg-primary)" }}
+                />
+                <div
+                  onClick={() => setOpen(open === g.game_no ? null : g.game_no)}
+                  className="cursor-pointer rounded-lg border p-4 transition hover:bg-[var(--bg-tertiary)]"
+                  style={{
+                    borderColor: g.profit_ok === 0 ? "rgba(154,74,74,0.5)" : "var(--border-subtle)",
+                    background: "var(--bg-secondary)",
+                  }}
+                >
+                  <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
+                    <div className="min-w-[56px]">
+                      <div className="text-[11px] uppercase tracking-[0.05em] text-slate-500">局号</div>
+                      <div className="font-mono text-lg font-medium" style={{ color: "var(--text-primary)" }}>
+                        {g.game_no}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-[11px] text-slate-500">格数组合</div>
+                      <div className="font-mono text-sm text-slate-300">{g.grid_combo}</div>
+                    </div>
+                    <div>
+                      <div className="text-[11px] text-slate-500">红品</div>
+                      <div className="text-sm text-slate-300">{g.red_count} 件 · 均格 {g.red_avg}</div>
+                    </div>
+                    <div>
+                      <div className="text-[11px] text-slate-500">总价值</div>
+                      <div className="font-mono text-sm text-slate-300">{fmtMoney(g.full_value)}</div>
+                    </div>
+                    <div className="ml-auto text-right">
+                      <div className="text-[11px] text-slate-500">成交价 {g.deal_price != null ? fmtMoney(g.deal_price) : "—"}</div>
+                      <div
+                        className="font-mono text-base font-medium"
+                        style={{
+                          color:
+                            g.profit === null
+                              ? "var(--text-tertiary)"
+                              : g.profit >= 0
+                                ? "var(--success)"
+                                : "var(--danger)",
+                        }}
+                      >
+                        {g.profit === null ? "—" : g.profit >= 0 ? `+${fmtMoney(g.profit)}` : fmtMoney(g.profit)}
+                      </div>
                       {g.profit_ok === 0 && (
                         <span
-                          className="ml-1 rounded bg-rose-500/15 px-1 py-0.5 text-[10px] text-rose-400"
+                          className="mt-0.5 inline-block rounded bg-rose-500/15 px-1 py-0.5 text-[10px] text-rose-400"
                           title="收益核验不通过（收益 ≠ 总价值 − 成交价），未进入模型训练"
                         >
                           ⚠核验不过
                         </span>
                       )}
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          startEditGame(g);
-                        }}
-                        title="修改总价值/成交价/收益"
-                        className={`ml-1.5 rounded px-1.5 py-0.5 text-[11px] transition ${
-                          g.profit_ok === 0
-                            ? "bg-rose-500/20 text-rose-300 hover:bg-rose-500/30"
-                            : "bg-indigo-500/15 text-indigo-400 hover:bg-indigo-500/25"
-                        }`}
-                      >
-                        ✎ 修改
-                      </button>
-                    </td>
-                    <td className="py-2">
+                    </div>
+                    <div className="flex items-center gap-1.5">
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
@@ -374,8 +375,20 @@ export default function RecordsPage() {
                       >
                         {g.won === 1 ? "✓ 成功" : g.won === 0 ? "未成功" : "未标记"}
                       </button>
-                    </td>
-                    <td className="py-2">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          startEditGame(g);
+                        }}
+                        title="修改总价值/成交价/收益"
+                        className={`rounded px-1.5 py-0.5 text-[11px] transition ${
+                          g.profit_ok === 0
+                            ? "bg-rose-500/20 text-rose-300 hover:bg-rose-500/30"
+                            : "bg-indigo-500/15 text-indigo-400 hover:bg-indigo-500/25"
+                        }`}
+                      >
+                        ✎ 修改
+                      </button>
                       {delConfirm === g.game_no ? (
                         <button
                           onClick={(e) => {
@@ -401,65 +414,67 @@ export default function RecordsPage() {
                           🗑
                         </button>
                       )}
-                    </td>
-                  </tr>
+                    </div>
+                  </div>
                   {open === g.game_no && (
-                    <tr key={`${g.game_no}-detail`} className="border-t border-ink-800 bg-ink-900/40">
-                      <td colSpan={10} className="px-4 py-3">
-                        <div className="flex flex-wrap gap-2">
-                          {g.items.map((it, i) => (
-                            <span
-                              key={i}
-                              className="rounded-lg border border-ink-700 bg-ink-850 px-2.5 py-1 text-xs text-slate-200"
-                            >
-                              {it.name} · {it.grid_cells}格 · {fmtMoney(it.trade_price ?? it.sys_price ?? 0)}
-                            </span>
-                          ))}
-                        </div>
-                        {editGame === g.game_no && (
-                          <div className="mt-3 flex flex-wrap items-end gap-2 rounded-lg border border-indigo-500/30 bg-indigo-500/5 p-2.5">
-                            <div>
-                              <label className="mb-0.5 block text-[10px] text-slate-400">总价值</label>
-                              <input
-                                className="input w-32 !py-1 text-xs"
-                                type="number"
-                                value={gameForm.total_value}
-                                onChange={(e) => gameFormField("total_value", e.target.value)}
-                              />
-                            </div>
-                            <div>
-                              <label className="mb-0.5 block text-[10px] text-slate-400">成交价</label>
-                              <input
-                                className="input w-32 !py-1 text-xs"
-                                type="number"
-                                value={gameForm.deal_price}
-                                onChange={(e) => gameFormField("deal_price", e.target.value)}
-                              />
-                            </div>
-                            <div>
-                              <label className="mb-0.5 block text-[10px] text-slate-400">收益（= 总价值 − 成交价）</label>
-                              <input
-                                className="input w-32 !py-1 text-xs"
-                                type="number"
-                                value={gameForm.profit}
-                                onChange={(e) => gameFormField("profit", e.target.value)}
-                              />
-                            </div>
-                            <button className="btn-primary !py-1 text-xs" onClick={() => saveGameEdit(g)}>
-                              保存并核验
-                            </button>
-                            <button className="btn-ghost !py-1 text-xs" onClick={() => setEditGame(null)}>
-                              取消
-                            </button>
+                    <div className="mt-3 border-t pt-3" style={{ borderColor: "var(--border-subtle)" }}>
+                      <div className="flex flex-wrap gap-2">
+                        {g.items.map((it, i) => (
+                          <span
+                            key={i}
+                            className="rounded-lg border px-2.5 py-1 text-xs text-slate-200"
+                            style={{ borderColor: "var(--border-subtle)", background: "var(--bg-primary)" }}
+                          >
+                            {it.name} · {it.grid_cells}格 · {fmtMoney(it.trade_price ?? it.sys_price ?? 0)}
+                          </span>
+                        ))}
+                      </div>
+                      {editGame === g.game_no && (
+                        <div
+                          className="mt-3 flex flex-wrap items-end gap-2 rounded-lg p-2.5"
+                          style={{ borderColor: "rgba(201,169,98,0.3)", background: "var(--accent-soft)" }}
+                        >
+                          <div>
+                            <label className="mb-0.5 block text-[10px] text-slate-400">总价值</label>
+                            <input
+                              className="input w-32 !py-1 text-xs"
+                              type="number"
+                              value={gameForm.total_value}
+                              onChange={(e) => gameFormField("total_value", e.target.value)}
+                            />
                           </div>
-                        )}
-                      </td>
-                    </tr>
+                          <div>
+                            <label className="mb-0.5 block text-[10px] text-slate-400">成交价</label>
+                            <input
+                              className="input w-32 !py-1 text-xs"
+                              type="number"
+                              value={gameForm.deal_price}
+                              onChange={(e) => gameFormField("deal_price", e.target.value)}
+                            />
+                          </div>
+                          <div>
+                            <label className="mb-0.5 block text-[10px] text-slate-400">收益（= 总价值 − 成交价）</label>
+                            <input
+                              className="input w-32 !py-1 text-xs"
+                              type="number"
+                              value={gameForm.profit}
+                              onChange={(e) => gameFormField("profit", e.target.value)}
+                            />
+                          </div>
+                          <button className="btn-primary !py-1 text-xs" onClick={() => saveGameEdit(g)}>
+                            保存并核验
+                          </button>
+                          <button className="btn-ghost !py-1 text-xs" onClick={() => setEditGame(null)}>
+                            取消
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   )}
-                </Fragment>
-              ))}
-            </tbody>
-          </table>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       </Card>
 

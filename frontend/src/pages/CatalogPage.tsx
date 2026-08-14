@@ -17,7 +17,7 @@ export default function CatalogPage() {
   const [onlyNeedLearn, setOnlyNeedLearn] = useState(false);
   const [learnFilter, setLearnFilter] = useState<"all" | "learned" | "not">("all");
   const [zoom, setZoom] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<"cards" | "table">("cards");
+  const [viewMode, setViewMode] = useState<"cards" | "table">("table");
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [deleting, setDeleting] = useState(false);
   const [detail, setDetail] = useState<VisionItem | null>(null);
@@ -522,22 +522,26 @@ export default function CatalogPage() {
           )}
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto rounded-lg border" style={{ borderColor: "var(--border-subtle)" }}>
             <table className="w-full text-sm tabular-nums">
               <thead>
-                <tr className="text-left text-xs text-slate-500">
-                  <th className="py-2 pr-3">藏品</th>
-                  <th className="py-2 pr-3">格数</th>
-                  <th className="py-2 pr-3">图鉴价</th>
-                  <th className="py-2 pr-3">交易行价(含税)</th>
-                  <th className="py-2 pr-3">学习次数</th>
-                  <th className="py-2">对应图片</th>
+                <tr className="text-left text-[11px] uppercase tracking-[0.05em] text-slate-500">
+                  <th className="py-3 pl-4 pr-3 font-medium">藏品</th>
+                  <th className="py-3 pr-3 font-medium">格数</th>
+                  <th className="py-3 pr-3 text-right font-medium">图鉴价</th>
+                  <th className="py-3 pr-3 text-right font-medium">交易行价(含税)</th>
+                  <th className="py-3 pr-3 font-medium">学习次数</th>
+                  <th className="py-3 pr-4 font-medium">对应图片</th>
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((g) => (
-                  <tr key={g.cat_id} className="border-t border-ink-700/60 align-top text-slate-300">
-                    <td className="py-2 pr-3">
+                {filtered.map((g, gi) => (
+                  <tr
+                    key={g.cat_id}
+                    className={`h-12 border-t align-middle text-slate-300 ${gi % 2 === 1 ? "bg-[var(--bg-secondary)]" : ""}`}
+                    style={{ borderColor: "var(--border-subtle)" }}
+                  >
+                    <td className="pl-4 pr-3">
                       <div className="flex flex-wrap items-center gap-1.5">
                         <button className="font-medium text-slate-100 hover:text-indigo-400" onClick={() => setDetail(g)}>{g.name}</button>
                         {g.source === "ocr" && (
@@ -548,19 +552,28 @@ export default function CatalogPage() {
                         )}
                       </div>
                     </td>
-                    <td className="py-2 pr-3 font-semibold">{g.grid_cells} 格</td>
-                    <td className="py-2 pr-3 tabular-nums">{fmtMoney(g.value)}</td>
-                    <td className="py-2 pr-3 tabular-nums text-indigo-600">{fmtMoney(g.current_value ?? g.value * 1.15)}</td>
-                    <td className="py-2 pr-3">
+                    <td className="pr-3">
                       <span
-                        className={`rounded-lg px-2 py-0.5 text-xs tabular-nums ${
+                        className="rounded-full border px-2 py-0.5 text-xs font-medium"
+                        style={{ borderColor: "var(--border-accent)", color: "var(--text-secondary)" }}
+                      >
+                        {g.grid_cells} 格
+                      </span>
+                    </td>
+                    <td className="pr-3 text-right font-mono">{fmtMoney(g.value)}</td>
+                    <td className="pr-3 text-right font-mono" style={{ color: "var(--accent)" }}>
+                      {fmtMoney(g.current_value ?? g.value * 1.15)}
+                    </td>
+                    <td className="pr-3">
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-xs tabular-nums ${
                           g.has_image ? "bg-indigo-500/15 text-indigo-600" : "bg-slate-500/15 text-slate-500"
                         }`}
                       >
                         {g.n_images} 张
                       </span>
                     </td>
-                    <td className="py-2">
+                    <td className="pr-4">
                       <div className="flex flex-wrap items-center gap-1.5">
                         {(g.images && g.images.length > 0
                           ? g.images
