@@ -177,6 +177,7 @@ def _gp_interval(payload: dict[str, Any], X: np.ndarray, key: str,
 
     信息充分的输入 GP std 小 → 区间窄；信息稀少的输入 std 大 → 区间宽。
     GP 不可用时回退到 LOOCV 残差 × INTERVAL_WIDEN（原启发式）。
+    返回 (q10, q90, used_gp, std)：std 用于置信度。
     """
     gp = payload.get(f"gp_{key}")
     scale = (payload.get("gp_scale") or {}).get(key, 1.0)
@@ -184,10 +185,10 @@ def _gp_interval(payload: dict[str, Any], X: np.ndarray, key: str,
         try:
             _, std = gp.predict(X, return_std=True)
             half = 1.28 * float(std[0]) * scale
-            return -half, half
+            return -half, half, True, float(std[0])
         except Exception:  # noqa: BLE001
             pass
-    return q["q10"] * INTERVAL_WIDEN, q["q90"] * INTERVAL_WIDEN
+    return q["q10"] * INTERVAL_WIDEN, q["q90"] * INTERVAL_WIDEN, False, None
 
 
 def _fit_ensemble(X: np.ndarray, y: np.ndarray, fast_gp: bool = False) -> list[Any]:
@@ -497,8 +498,8 @@ def predict(conn, inputs: dict[str, Any], rule: dict[str, Any]) -> dict[str, Any
     red_log = feat["rule_red_log"] + res_r
     full_log = feat["rule_full_log"] + res_f
     # GP 原生置信区间（逐样本 std × conformal 校准），不可用时回退 LOOCV×1.5
-    q10r, q90r = _gp_interval(payload, X, "red", q)
-    q10f, q90f = _gp_interval(payload, X, "full", q)
+    q10r, q90r, _, _ = _gp_interval(payload, X, "red", q)
+    q10f, q90f, use_gp_f, std_f = _gp_interval(payload, X, "full", q)
     return {
         "available": True,
         "n": payload["n"],
@@ -516,4 +517,7 @@ def predict(conn, inputs: dict[str, Any], rule: dict[str, Any]) -> dict[str, Any
         },
         "residual_red": float(res_r),
         "residual_full": float(res_f),
+        # 区间方法与置信度（供前端 IntervalBar 展示）
+        "interval_method": "gp_conformal" if use_gp_f else "loocv_fallback",
+        "confidence": round(min(1.0, (1.0 / (std_f + 0.01)) / 5.0), 3) if std_f is not None else None,
     }

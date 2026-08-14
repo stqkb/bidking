@@ -138,6 +138,7 @@ def estimate(inputs: dict[str, Any], board: list[list[int]] | None = None) -> di
     if board is not None:
         rule = merge_cnn(rule, board)
     _apply_calibration(rule, inputs)
+    _annotate_bid(rule)
     if key:
         _EST_CACHE[key] = rule
         _EST_CACHE_ORDER.append(key)
@@ -145,6 +146,23 @@ def estimate(inputs: dict[str, Any], board: list[list[int]] | None = None) -> di
             old = _EST_CACHE_ORDER.pop(0)
             _EST_CACHE.pop(old, None)
     return rule
+
+
+def _annotate_bid(rule: dict[str, Any]) -> None:
+    """把区间方法与置信度补到 bid（前端 IntervalBar 展示）。"""
+    bid = rule.get("bid")
+    if not isinstance(bid, dict):
+        return
+    ml_info = rule.get("ml") or {}
+    bid["interval_method"] = ml_info.get("interval_method", "rule_mc")
+    conf = ml_info.get("confidence")
+    if conf is None:
+        # fallback：用区间相对宽度估算置信度（越窄越可信）
+        f = rule.get("full") or {}
+        ev = float(f.get("ev") or 0)
+        w = (float(f.get("p90") or 0) - float(f.get("p10") or 0)) / ev if ev else 1.0
+        conf = round(min(1.0, (1.0 / (w + 0.05)) / 4.0), 3)
+    bid["confidence"] = conf
 
 
 def _apply_calibration(rule: dict[str, Any], inputs: dict[str, Any]) -> None:
