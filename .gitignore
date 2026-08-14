@@ -31,3 +31,6 @@ _*.py
 # 可重建的合成数据/特征缓存（体积大，不随仓库传播）
 data/models/cnn_synth.npz
 data/models/cnn_synth.fp
+
+# Vite 构建临时文件
+frontend/*.timestamp-*.mjs
