@@ -15,6 +15,12 @@ export default function RecordsPage() {
   const [sortBy, setSortBy] = useState<"game_no" | "profit_desc" | "profit_asc">("game_no");
   const [profitFilter, setProfitFilter] = useState<"all" | "pos" | "neg">("all");
   const [wonFilter, setWonFilter] = useState<"all" | "won" | "not">("all");
+  const [editGame, setEditGame] = useState<number | null>(null);
+  const [gameForm, setGameForm] = useState<{ total_value: string; deal_price: string; profit: string }>({
+    total_value: "",
+    deal_price: "",
+    profit: "",
+  });
 
   // 历史对局排序与过滤
   const filteredGames = useMemo(() => {
@@ -69,6 +75,29 @@ export default function RecordsPage() {
     // 未标记/未成功 → 本人竞拍成功；已成功 → 取消
     const next = g.won === 1 ? 0 : 1;
     await api.updateGameWon(g.game_no, next === 1);
+    await load();
+  };
+
+  const startEditGame = (g: GameRecord) => {
+    setEditGame(g.game_no);
+    setOpen(g.game_no);  // 同时展开明细显示编辑表单
+    setGameForm({
+      total_value: g.full_value != null ? String(g.full_value) : "",
+      deal_price: g.deal_price != null ? String(g.deal_price) : "",
+      profit: g.profit != null ? String(g.profit) : "",
+    });
+  };
+
+  const saveGameEdit = async (g: GameRecord) => {
+    const num = (s: string) => (s === "" ? null : Number(s) || 0);
+    await api.updateGamePrices(g.game_no, {
+      total_value: num(gameForm.total_value),
+      deal_price: num(gameForm.deal_price),
+      profit: num(gameForm.profit),
+    });
+    setEditGame(null);
+    setMsg("已保存，收益已重新核验");
+    setTimeout(() => setMsg(""), 3000);
     await load();
   };
 
@@ -284,11 +313,25 @@ export default function RecordsPage() {
                       {g.profit_ok === 0 && (
                         <span
                           className="ml-1 rounded bg-rose-500/15 px-1 py-0.5 text-[10px] text-rose-400"
-                          title="收益核验不通过（收益 ≠ 成交价 − 总价值），未进入模型训练"
+                          title="收益核验不通过（收益 ≠ 总价值 − 成交价），未进入模型训练"
                         >
                           ⚠核验不过
                         </span>
                       )}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          startEditGame(g);
+                        }}
+                        title="修改总价值/成交价/收益"
+                        className={`ml-1.5 rounded px-1.5 py-0.5 text-[11px] transition ${
+                          g.profit_ok === 0
+                            ? "bg-rose-500/20 text-rose-300 hover:bg-rose-500/30"
+                            : "bg-indigo-500/15 text-indigo-400 hover:bg-indigo-500/25"
+                        }`}
+                      >
+                        ✎ 修改
+                      </button>
                     </td>
                     <td className="py-2">
                       <button
@@ -322,6 +365,43 @@ export default function RecordsPage() {
                             </span>
                           ))}
                         </div>
+                        {editGame === g.game_no && (
+                          <div className="mt-3 flex flex-wrap items-end gap-2 rounded-lg border border-indigo-500/30 bg-indigo-500/5 p-2.5">
+                            <div>
+                              <label className="mb-0.5 block text-[10px] text-slate-400">总价值</label>
+                              <input
+                                className="input w-32 !py-1 text-xs"
+                                type="number"
+                                value={gameForm.total_value}
+                                onChange={(e) => setGameForm({ ...gameForm, total_value: e.target.value })}
+                              />
+                            </div>
+                            <div>
+                              <label className="mb-0.5 block text-[10px] text-slate-400">成交价</label>
+                              <input
+                                className="input w-32 !py-1 text-xs"
+                                type="number"
+                                value={gameForm.deal_price}
+                                onChange={(e) => setGameForm({ ...gameForm, deal_price: e.target.value })}
+                              />
+                            </div>
+                            <div>
+                              <label className="mb-0.5 block text-[10px] text-slate-400">收益（= 总价值 − 成交价）</label>
+                              <input
+                                className="input w-32 !py-1 text-xs"
+                                type="number"
+                                value={gameForm.profit}
+                                onChange={(e) => setGameForm({ ...gameForm, profit: e.target.value })}
+                              />
+                            </div>
+                            <button className="btn-primary !py-1 text-xs" onClick={() => saveGameEdit(g)}>
+                              保存并核验
+                            </button>
+                            <button className="btn-ghost !py-1 text-xs" onClick={() => setEditGame(null)}>
+                              取消
+                            </button>
+                          </div>
+                        )}
                       </td>
                     </tr>
                   )}

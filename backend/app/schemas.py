@@ -91,8 +91,11 @@ class SaveSummaryInput(BaseModel):
     won: bool = False  # 是否本人竞拍成功（用于收益规律统计）
 
 
-class GameWonInput(BaseModel):
-    won: bool
+class GamePatchInput(BaseModel):
+    won: bool | None = None  # 本人是否竞拍成功
+    total_value: float | None = None  # 总价值（可选修改，改动后重算收益核验）
+    deal_price: float | None = None  # 成交价
+    profit: float | None = None  # 收益/盈亏
 
 
 class CatalogDeleteInput(BaseModel):

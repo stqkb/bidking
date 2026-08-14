@@ -9,7 +9,7 @@ from uuid import uuid4
 
 from fastapi import APIRouter, HTTPException
 
-from .. import engine, schemas, vision
+from .. import engine, ocr as ocr_mod, schemas, vision
 from ..config import XLSX_SOURCE
 from ..core import cache
 from ..core.bg import bg
@@ -105,15 +105,35 @@ def games() -> dict[str, Any]:
 
 
 @router.patch("/api/games/{game_no}")
-def game_update_won(game_no: int, body: schemas.GameWonInput) -> dict[str, Any]:
-    """更新对局的「本人是否竞拍成功」标记（收益规律统计用）。"""
+def game_update(game_no: int, body: schemas.GamePatchInput) -> dict[str, Any]:
+    """更新对局：本人竞拍成功标记（won）与/或价格字段（总价值/成交价/收益）。
+    价格字段更新后自动重算收益核验（profit_ok），核验不通过的对局不进模型训练。"""
     with db() as conn:
-        cur = conn.execute(
-            "UPDATE game_records SET won=? WHERE game_no=?", (1 if body.won else 0, game_no)
-        )
-        if cur.rowcount == 0:
+        row = conn.execute(
+            "SELECT * FROM game_records WHERE game_no=?", (game_no,)
+        ).fetchone()
+        if row is None:
             raise HTTPException(status_code=404, detail="对局不存在")
-    return {"ok": True, "game_no": game_no, "won": body.won}
+        full_value = row["full_value"] if body.total_value is None else body.total_value
+        deal_price = row["deal_price"] if body.deal_price is None else body.deal_price
+        profit = row["profit"] if body.profit is None else body.profit
+        won = row["won"]
+        if body.won is not None:
+            won = 1 if body.won else 0
+        price_changed = (
+            body.total_value is not None or body.deal_price is not None or body.profit is not None
+        )
+        profit_ok = row["profit_ok"]
+        if price_changed:
+            profit_ok = ocr_mod._check_profit_ok(full_value, deal_price, profit)
+        conn.execute(
+            """UPDATE game_records
+               SET full_value=?, deal_price=?, profit=?, won=?, profit_ok=?
+               WHERE game_no=?""",
+            (full_value, deal_price, profit, won, profit_ok, game_no),
+        )
+    cache.invalidate_games()
+    return {"ok": True, "game_no": game_no, "won": won, "profit_ok": profit_ok}
 
 
 @router.get("/api/records")
