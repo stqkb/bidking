@@ -12,8 +12,10 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import re
 import shutil
+import tempfile
 from pathlib import Path
 from typing import Any
 
@@ -30,13 +32,18 @@ from .db import db
 
 MANIFEST = DATA_DIR / "crops_manifest.json"
 FEATS_CACHE = DATA_DIR / "crops_feats.npy"   # 特征持久化缓存（manifest 变更自动失效）
-FEATS_FP = DATA_DIR / "crops_feats.fp"       # 缓存指纹
+FEATS_META = DATA_DIR / "crops_feats.meta"   # 与 npy 行对齐的源文件签名（增量更新用）
+FEATS_FP = DATA_DIR / "crops_feats.fp"       # 缓存指纹（兼容旧版，新逻辑以 meta 为准）
 IMG_SIZE = 224
 FEAT_DIM = 2048
 
 _model = None
 _gallery_cache: dict[str, Any] = {"manifest": None, "feats": None}
 _device = "cuda" if torch.cuda.is_available() else "cpu"
+
+# TorchScript trace 缓存：免每次进程启动重新构造 torchvision ResNet50（节省约 1~2s 初始化）。
+# 注意：放系统 temp（英文路径）——torch.jit.save/load 在中文路径下会失败。
+_MODEL_TRACE = Path(tempfile.gettempdir()) / f"bidking_resnet50_feat_{'cuda' if _device == 'cuda' else 'cpu'}.pt"
 
 
 # ---------------------------------------------------------------- 基础工具
@@ -68,16 +75,38 @@ def _cached_manifest() -> list[dict[str, Any]]:
 
 
 def _get_model() -> torch.nn.Module:
-    """ResNet50(ImageNet) 去掉 fc，输出 avgpool 后 2048 维特征。首次调用联网下载权重(~100MB)。"""
+    """ResNet50(ImageNet) 去掉 fc，输出 avgpool 后 2048 维特征。
+
+    优先加载 TorchScript trace 缓存（免 torchvision 构造开销）；无缓存时构造
+    并 trace 落盘。GPU 下使用 FP16 半精度，推理速度约翻倍。
+    """
     global _model
     if _model is None:
+        if _MODEL_TRACE.exists():
+            try:
+                m = torch.jit.load(str(_MODEL_TRACE)).to(_device).eval()
+                if _device == "cuda":
+                    m = m.half()
+                _model = m
+                return _model
+            except Exception:  # noqa: BLE001
+                _model = None
         weights = ResNet50_Weights.IMAGENET1K_V1
         m = resnet50(weights=weights)
         m.fc = torch.nn.Identity()
         m.eval()
-        m.to(_device)
+        try:
+            # 注意：Module.cpu()/float() 是 inplace，会修改 m 本身。
+            # 因此先以初始 cpu/fp32 状态 trace 保存（中文路径下 jit.save 会失败，故用英文 temp 路径），
+            # 再转移到目标 device，避免模型被挪回 cpu。
+            dummy = torch.zeros(1, 3, IMG_SIZE, IMG_SIZE)
+            traced = torch.jit.trace(m, dummy)
+            torch.jit.save(traced, str(_MODEL_TRACE))
+        except Exception:  # noqa: BLE001 trace 失败不阻塞，退回普通模型
+            pass
         if _device == "cuda":
-            m = m.half()  # FP16 半精度：RTX 4060 推理速度约翻倍
+            m = m.half()
+        m.to(_device)
         _model = m
     return _model
 
@@ -92,7 +121,8 @@ def _encode(images: list[Image.Image]) -> np.ndarray:
     chunk = 32  # CPU 内存保护：分批前向，结果与整批一致
     with torch.no_grad():
         for i in range(0, len(images), chunk):
-            batch = torch.stack([tf(im.convert("RGB")) for im in images[i : i + chunk]])
+            prepped = [im if im.mode == "RGB" else im.convert("RGB") for im in images[i : i + chunk]]
+            batch = torch.stack([tf(im) for im in prepped])
             batch = batch.to(_device)
             if _device == "cuda":
                 batch = batch.half()
@@ -427,37 +457,94 @@ def collect_crops(stabilize: bool = True) -> dict[str, Any]:
 # ---------------------------------------------------------------- 匹配
 
 
+def _file_sig(path: str) -> tuple[int, int] | None:
+    """文件签名（size, mtime_ns），用于检测图片是否被替换。"""
+    try:
+        st = os.stat(path)
+        return int(st.st_size), int(st.st_mtime_ns)
+    except OSError:
+        return None
+
+
 def _manifest_fingerprint(manifest: list[dict[str, Any]]) -> str:
-    """图库指纹：由每个条目的路径+名称+变体标志计算，图库一变指纹即变。"""
+    """图库指纹：由每个条目的路径+名称+变体标志+文件签名计算，图库一变指纹即变。"""
     h = hashlib.md5()
     for m in manifest:
         h.update(str(m.get("path", "")).encode("utf-8", "ignore"))
         h.update(str(m.get("name", "")).encode("utf-8", "ignore"))
         h.update(str(bool(m.get("variant"))).encode("ascii", "ignore"))
+        sig = _file_sig(str(m.get("path", "")))
+        if sig:
+            h.update(str(sig).encode("ascii", "ignore"))
     return h.hexdigest()
+
+
+def _save_feats(manifest: list[dict[str, Any]], feats: np.ndarray) -> None:
+    """持久化特征矩阵 + 与行对齐的源文件签名（供下次增量重建对齐）。"""
+    try:
+        np.save(FEATS_CACHE, feats)
+        rows = []
+        for m in manifest:
+            p = str(m.get("path", ""))
+            sig = _file_sig(p)
+            rows.append({"path": p, "size": sig[0] if sig else 0, "mtime": sig[1] if sig else 0})
+        FEATS_META.write_text(json.dumps({"rows": rows}), encoding="utf-8")
+    except Exception:  # noqa: BLE001 中文路径等异常时退回内存缓存
+        pass
+
+
+def _rebuild_feats(
+    manifest: list[dict[str, Any]],
+    old_feats: np.ndarray,
+    old_rows: list[dict[str, Any]],
+) -> tuple[np.ndarray, bool]:
+    """增量重建特征矩阵：只对新增/变更（路径或签名不一致）的图重新编码。
+
+    命中旧缓存的行直接复用，避免 manifest 增删少量条目时全量重跑 ResNet50。
+    返回 (新特征, 是否发生了实际变化)。
+    """
+    sig_map: dict[tuple[str, int, int], int] = {}
+    for i, r in enumerate(old_rows):
+        sig_map[(r.get("path", ""), int(r.get("size", 0)), int(r.get("mtime", 0)))] = i
+    keep = np.zeros((len(manifest), FEAT_DIM), dtype=np.float32)
+    pending: list[tuple[int, str]] = []
+    for i, m in enumerate(manifest):
+        p = str(m.get("path", ""))
+        sig = _file_sig(p)
+        if sig is not None:
+            idx = sig_map.get((p, sig[0], sig[1]))
+            if idx is not None:
+                keep[i] = old_feats[idx]
+                continue
+        pending.append((i, p))
+    if not pending:
+        return keep, False
+    new_feats = _encode([_open_pil(p) for _, p in pending])
+    for (i, _), f in zip(pending, new_feats):
+        keep[i] = f
+    return keep, True
 
 
 def _ensure_cache() -> tuple[list[dict[str, Any]], np.ndarray]:
     if _gallery_cache["manifest"] is None:
         manifest = _cached_manifest()
         feats = None
+        changed = False
         if manifest:
-            fp = _manifest_fingerprint(manifest)
             try:
-                if FEATS_FP.exists() and FEATS_CACHE.exists() and FEATS_FP.read_text(encoding="utf-8", errors="ignore").strip() == fp:
+                if FEATS_CACHE.exists() and FEATS_META.exists():
                     cached = np.load(FEATS_CACHE)
-                    if cached.shape == (len(manifest), FEAT_DIM):
-                        feats = cached.astype(np.float32)
+                    meta = json.loads(FEATS_META.read_text(encoding="utf-8"))
+                    old_rows = meta.get("rows", [])
+                    if cached.shape == (len(old_rows), FEAT_DIM):
+                        feats, changed = _rebuild_feats(manifest, cached.astype(np.float32), old_rows)
             except Exception:  # noqa: BLE001
                 feats = None
         if feats is None:
             feats = _encode([_open_pil(m["path"]) for m in manifest]) if manifest else np.zeros((0, FEAT_DIM), dtype=np.float32)
-            if manifest:
-                try:
-                    np.save(FEATS_CACHE, feats)
-                    FEATS_FP.write_text(fp, encoding="utf-8")
-                except Exception:  # noqa: BLE001 中文路径等异常时退回内存缓存
-                    pass
+            changed = True
+        if manifest and changed:
+            _save_feats(manifest, feats)
         _gallery_cache["manifest"] = manifest
         _gallery_cache["feats"] = feats
     return _gallery_cache["manifest"], _gallery_cache["feats"]
@@ -472,10 +559,14 @@ def match_crop(crop_path: str | Path, topk: int = 5) -> dict[str, Any]:
     q = _encode([_open_pil(crop_path)])[0]
     sims = feats @ q  # (n,)
 
+    # 单次遍历：同时统计每 name 的最佳 learn/ocr 候选与高置信 votes，避免 O(n·k) 嵌套
     per_name: dict[str, dict[str, Any]] = {}
+    votes_map: dict[str, int] = {}
     for i, m in enumerate(manifest):
         s = float(sims[i])
         nm = m["name"]
+        if s >= 0.75:
+            votes_map[nm] = votes_map.get(nm, 0) + 1
         src = m.get("source", "ocr")
         d = per_name.setdefault(nm, {"learn": None, "ocr": None})
         cand = {"score": s, "path": m["path"], "cells": m.get("grid_cells", 0)}  # 重建样本可能缺 grid_cells
@@ -495,18 +586,14 @@ def match_crop(crop_path: str | Path, topk: int = 5) -> dict[str, Any]:
         else:
             use = learn
             source = "learn"
-        # 多票加权：该 name 命中 >=0.75 的变体数量
-        votes = 0
-        for i, m in enumerate(manifest):
-            if m["name"] == nm and sims[i] >= 0.75:
-                votes += 1
+        # 多票加权：该 name 命中 >=0.75 的变体数量（单次遍历已统计）
         ranked.append({
             "name": nm,
             "grid_cells": use["cells"],
             "score": round(use["score"], 4),  # 纯余弦相似度
             "gallery": use["path"],
             "source": source,
-            "votes": votes,
+            "votes": votes_map.get(nm, 0),
         })
     ranked.sort(key=lambda x: -x["score"])
     return {"ok": True, "matches": ranked[:topk]}
@@ -525,9 +612,12 @@ def match_crops(crops: list[Image.Image], topk: int = 5) -> list[dict[str, Any]]
     for k in range(n):
         sims = sims_all[k]
         per_name: dict[str, dict[str, Any]] = {}
+        votes_map: dict[str, int] = {}
         for i, m in enumerate(manifest):
             s = float(sims[i])
             nm = m["name"]
+            if s >= 0.75:
+                votes_map[nm] = votes_map.get(nm, 0) + 1
             src = m.get("source", "ocr")
             d = per_name.setdefault(nm, {"learn": None, "ocr": None})
             cand = {"score": s, "path": m["path"], "cells": m.get("grid_cells", 0)}
@@ -546,17 +636,13 @@ def match_crops(crops: list[Image.Image], topk: int = 5) -> list[dict[str, Any]]
             else:
                 use = learn
                 source = "learn"
-            votes = 0
-            for i, m in enumerate(manifest):
-                if m["name"] == nm and sims[i] >= 0.75:
-                    votes += 1
             ranked.append({
                 "name": nm,
                 "grid_cells": use["cells"],
                 "score": round(use["score"], 4),
                 "gallery": use["path"],
                 "source": source,
-                "votes": votes,
+                "votes": votes_map.get(nm, 0),
             })
         ranked.sort(key=lambda x: -x["score"])
         results.append({"ok": True, "matches": ranked[:topk]})

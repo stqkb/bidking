@@ -1,6 +1,7 @@
 """表格机器学习：以规则估值为先验的残差回归集成 + 持续重训。"""
 from __future__ import annotations
 
+import hashlib
 import json
 import math
 from datetime import datetime
@@ -25,6 +26,27 @@ FEATURES = [
     "red_avg", "red_count", "red_grids", "known_size", "log_known_value",
     "known_ratio", "game_no_norm", "rule_red_log", "rule_full_log",
 ]
+
+# 数据指纹缓存：训练/评估只依赖 game_records + catalog_items，
+# 用两个表的轻量 hash 作指纹，数据未变时复用 dataset 与 LOOCV/chrono 评估结果，
+# 避免每次 OCR 确认触发重训时重复全量计算（LOOCV 的 O(n) 次集成拟合是最大开销）。
+_FP_CACHE: dict[str, tuple[list[dict[str, Any]], list[float], list[float]]] = {}
+_EVAL_CACHE: dict[str, tuple[dict[str, Any], dict[str, Any], dict[str, Any]]] = {}
+
+
+def _ds_fingerprint(conn) -> str:
+    """game_records + catalog_items 的轻量 hash（数据变化即变化）。"""
+    h = hashlib.md5()
+    for r in conn.execute(
+        "SELECT game_no, red_avg, red_count, red_grids, red_value, full_value, items_json "
+        "FROM game_records ORDER BY game_no"
+    ).fetchall():
+        h.update(repr(tuple(r)).encode("utf-8", "ignore"))
+    for r in conn.execute(
+        "SELECT name, grid_cells, value, current_value FROM catalog_items ORDER BY id"
+    ).fetchall():
+        h.update(repr(tuple(r)).encode("utf-8", "ignore"))
+    return h.hexdigest()
 
 
 @lru_cache(maxsize=512)
@@ -55,7 +77,11 @@ def rule_red_ev(conn, a: int, b: int) -> float:
 
 
 def build_dataset(conn) -> tuple[list[dict[str, Any]], list[float], list[float]]:
-    """从 game_records 构造特征与 log 残差目标。"""
+    """从 game_records 构造特征与 log 残差目标（指纹缓存：数据未变直接复用）。"""
+    fp = _ds_fingerprint(conn)
+    cached = _FP_CACHE.get(fp)
+    if cached is not None:
+        return cached
     stats, sizes_key, means_key = _stats_cache(conn)
     rows = conn.execute(
         """SELECT game_no, red_avg, red_count, red_grids, red_value, full_value, items_json
@@ -102,6 +128,8 @@ def build_dataset(conn) -> tuple[list[dict[str, Any]], list[float], list[float]]
         feats.append(feat)
         y_red.append(math.log(float(r["red_value"])) - feat["rule_red_log"])
         y_full.append(math.log(float(r["full_value"])) - feat["rule_full_log"])
+    _FP_CACHE.clear()  # 数据已变，只保留最新一份
+    _FP_CACHE[fp] = (feats, y_red, y_full)
     return feats, y_red, y_full
 
 
@@ -268,9 +296,17 @@ def retrain(conn) -> dict[str, Any]:
     YF = np.asarray(y_full)
     models_r = _fit_ensemble(X, YR)
     models_f = _fit_ensemble(X, YF)
-    loocv = _evaluate(feats, y_red, y_full, "loocv")
-    chrono = _evaluate(feats, y_red, y_full, "chrono")
-    curve = _calibration_curve(feats, y_full)
+    # 评估（LOOCV/chrono/校准曲线）按数据指纹缓存：数据未变时复用，避免每次重训重算
+    fp = _ds_fingerprint(conn)
+    ev = _EVAL_CACHE.get(fp)
+    if ev is None:
+        loocv = _evaluate(feats, y_red, y_full, "loocv")
+        chrono = _evaluate(feats, y_red, y_full, "chrono")
+        curve = _calibration_curve(feats, y_full)
+        _EVAL_CACHE.clear()
+        _EVAL_CACHE[fp] = (loocv, chrono, curve)
+    else:
+        loocv, chrono, curve = ev
     importance = {}
     for m in models_f:
         if hasattr(m, "feature_importances_"):

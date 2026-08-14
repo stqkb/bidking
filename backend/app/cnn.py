@@ -1,6 +1,7 @@
 """棋盘布局 CNN：合成数据预训练 + 真实对局校准（辅助估值模块）。"""
 from __future__ import annotations
 
+import hashlib
 import json
 import math
 from collections import Counter
@@ -20,6 +21,9 @@ except Exception:  # pragma: no cover
     TORCH_OK = False
 
 MODEL_PATH = MODELS_DIR / "cnn.joblib"
+# 合成数据磁盘缓存：catalog/game_records 未变时不重新生成
+SYNTH_CACHE = MODELS_DIR / "cnn_synth.npz"
+SYNTH_FP = MODELS_DIR / "cnn_synth.fp"
 
 
 def _factor_pairs(s: int) -> list[tuple[int, int]]:
@@ -79,7 +83,38 @@ def _render_ordered(sizes: list[int]) -> np.ndarray:
     return board
 
 
+def _synth_fingerprint(conn) -> str:
+    """合成数据依赖：catalog 格数/价值 + 对局 red_count 分布。"""
+    h = hashlib.md5()
+    for r in conn.execute("SELECT grid_cells, value FROM catalog_items WHERE value > 0").fetchall():
+        h.update(repr(tuple(r)).encode("utf-8", "ignore"))
+    for r in conn.execute("SELECT red_count FROM game_records WHERE red_count > 0").fetchall():
+        h.update(str(r[0]).encode("ascii", "ignore"))
+    return h.hexdigest()
+
+
 def synth_dataset(conn, n: int = CNN_SYNTH_N) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """合成布局数据（指纹缓存：catalog/对局未变时直接复用磁盘 npz）。"""
+    fp = _synth_fingerprint(conn)
+    try:
+        if SYNTH_CACHE.exists() and SYNTH_FP.exists() and SYNTH_FP.read_text(encoding="utf-8").strip() == fp:
+            d = np.load(SYNTH_CACHE)
+            X, yv, yc = d["X"], d["yv"], d["yc"]
+            if X.shape == (n, 1, CNN_BOARD, CNN_BOARD):
+                return X, yv, yc
+    except Exception:  # noqa: BLE001
+        pass
+    X, yv, yc = _synth_dataset_raw(conn, n)
+    try:
+        MODELS_DIR.mkdir(parents=True, exist_ok=True)
+        SYNTH_FP.write_text(fp, encoding="utf-8")
+        np.savez(SYNTH_CACHE, X=X, yv=yv, yc=yc)
+    except Exception:  # noqa: BLE001
+        pass
+    return X, yv, yc
+
+
+def _synth_dataset_raw(conn, n: int = CNN_SYNTH_N) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     items = conn.execute("SELECT grid_cells, value FROM catalog_items WHERE value > 0").fetchall()
     if not items:
         return np.zeros((0, 1, CNN_BOARD, CNN_BOARD)), np.zeros(0), np.zeros(0)

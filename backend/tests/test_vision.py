@@ -14,7 +14,9 @@ def isolated_vision(tmp_path, monkeypatch):
     monkeypatch.setattr(vision, "MANIFEST", tmp_path / "manifest.json")
     monkeypatch.setattr(vision, "CROPS_DIR", tmp_path / "crops")
     monkeypatch.setattr(vision, "FEATS_CACHE", tmp_path / "feats.npy")
+    monkeypatch.setattr(vision, "FEATS_META", tmp_path / "feats.meta")
     monkeypatch.setattr(vision, "FEATS_FP", tmp_path / "feats.fp")
+    monkeypatch.setattr(vision, "_MODEL_TRACE", tmp_path / "model.pt")
     vision._gallery_cache["manifest"] = None
     vision._gallery_cache["feats"] = None
     return tmp_path
