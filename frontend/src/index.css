@@ -2,24 +2,90 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ---- 设计令牌：优雅克制的高端工具感 ---- */
+/* ════════════════════════════════════════════════════════════
+   BidKing Design System v2 — Design Tokens
+   拍卖行级深色主题：墨黑底 + 鎏金强调 + 三色语义
+   ════════════════════════════════════════════════════════════ */
+
 :root {
-  --bg-primary: #111114;
-  --bg-secondary: #1a1a1f;
-  --bg-tertiary: #222228;
-  --border-subtle: #2a2a32;
-  --border-accent: #3a3a44;
-  --text-primary: #e8e6e3;
-  --text-secondary: #8a8890;
-  --text-tertiary: #5a5860;
-  --accent: #c9a962;
-  --accent-soft: rgba(201, 169, 98, 0.12);
-  --success: #4a9a6a;
-  --danger: #9a4a4a;
-  --warning: #9a8a4a;
   color-scheme: dark;
+
+  /* ── 背景层（由深到浅，微蓝调墨黑系）── */
+  --bg-canvas: #0E0E12;       /* 全局画布：近乎纯黑 */
+  --bg-surface: #16161C;      /* 卡片、面板 */
+  --bg-elevated: #1C1C24;     /* 弹出层、嵌套卡片 */
+  --bg-input: #22222B;        /* 输入框、表格 hover */
+
+  /* ── 边框 ── */
+  --border-subtle: #2E2E38;   /* 极细分割线 */
+  --border-default: #3A3A48;  /* 标准边框 */
+  --border-focus: #D4B978;    /* 焦点边框 */
+
+  /* ── 文字 ── */
+  --text-primary: #ECE9E4;    /* 主文字：标题、正文 */
+  --text-secondary: #A8A4A0;  /* 次要文字：标签、描述 */
+  --text-tertiary: #6E6B68;   /* 占位符、禁用 */
+  --text-inverse: #16161C;    /* 金色背景上的深色文字 */
+  --text-money: #E8D4A0;      /* 金额数字：浅金 */
+
+  /* ── 品牌色 — 鎏金 ── */
+  --gold-300: #E8D4A0;        /* 浅金：hover 高亮 */
+  --gold-400: #D4B978;        /* 标准金：链接、图标 */
+  --gold-500: #C9A962;        /* 品牌金：Logo、主 CTA */
+  --gold-600: #B8964E;        /* 深金：active 按压 */
+  --gold-soft: rgba(201, 169, 98, 0.12);
+
+  /* ── 语义色 — 翠绿（成功、盈利、低风险）── */
+  --jade-400: #5BBA8A;
+  --jade-500: #4A9A6A;
+  --jade-soft: rgba(74, 154, 106, 0.12);
+
+  /* ── 语义色 — 朱红（危险、亏损、高风险）── */
+  --vermilion-400: #E06B6B;
+  --vermilion-500: #C44A4A;
+  --vermilion-soft: rgba(196, 74, 74, 0.12);
+
+  /* ── 语义色 — 琥珀（警告、中风险、训练中）── */
+  --amber-400: #E0B056;
+  --amber-500: #C99A3E;
+  --amber-soft: rgba(201, 154, 62, 0.12);
+
+  /* ── 圆角 ── */
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+
+  /* ── 阴影（深色主题：用更深的黑色模拟层次）── */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.6);
+  --shadow-xl: 0 16px 48px rgba(0, 0, 0, 0.7);
+  --shadow-glow: 0 0 0 1px var(--gold-soft), 0 4px 16px rgba(201, 169, 98, 0.15);
+
+  /* ── 动效 ── */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --dur-fast: 150ms;
+  --dur-normal: 250ms;
+  --dur-slow: 400ms;
+
+  /* ════════════════════════════════════════════════════════════
+     向后兼容别名 — 旧变量名指向新值，确保现有页面不破坏
+     ════════════════════════════════════════════════════════════ */
+  --bg-primary: var(--bg-canvas);
+  --bg-secondary: var(--bg-surface);
+  --bg-tertiary: var(--bg-input);
+  --border-accent: var(--border-default);
+  --accent: var(--gold-500);
+  --accent-soft: var(--gold-soft);
+  --success: var(--jade-500);
+  --danger: var(--vermilion-500);
+  --warning: var(--amber-500);
 }
 
+/* ── 全局重置 ── */
 html,
 body,
 #root {
@@ -27,25 +93,31 @@ body,
 }
 
 body {
-  background: var(--bg-primary);
+  background: var(--bg-canvas);
   color: var(--text-primary);
   font-family: Inter, "Noto Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
   font-weight: 400;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
+/* ── 滚动条 ── */
 ::-webkit-scrollbar {
-  width: 9px;
-  height: 9px;
-}
-::-webkit-scrollbar-thumb {
-  border-radius: 8px;
-  background: var(--border-accent);
+  width: 8px;
+  height: 8px;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
 }
+::-webkit-scrollbar-thumb {
+  border-radius: 4px;
+  background: var(--border-subtle);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--border-default);
+}
 
+/* ── 数字输入框去除箭头 ── */
 input[type="number"]::-webkit-outer-spin-button,
 input[type="number"]::-webkit-inner-spin-button {
   -webkit-appearance: none;
@@ -56,14 +128,30 @@ input[type="number"] {
   appearance: textfield;
 }
 
-/* ---- 组件：卡片 ---- */
-.card {
-  border: 1px solid var(--border-subtle);
-  background: var(--bg-secondary);
-  border-radius: 8px;
-  box-shadow: none;
+/* ── 焦点环 ── */
+*:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 2px;
 }
 
+/* ── 等宽数字 ── */
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ════════════════════════════════════════════════════════════
+   组件工具类
+   ════════════════════════════════════════════════════════════ */
+
+/* ── 卡片 ── */
+.card {
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-surface);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+}
+
+/* ── 字段标签 ── */
 .field-label {
   display: block;
   margin-bottom: 6px;
@@ -73,129 +161,232 @@ input[type="number"] {
   color: var(--text-secondary);
 }
 
-/* ---- 组件：输入框（无边框，focus 底部 2px accent 细线） ---- */
+/* ── 输入框 ── */
 .input {
   width: 100%;
-  background: var(--bg-tertiary);
-  border: 1px solid transparent;
-  border-radius: 6px;
-  padding: 8px 12px;
+  background: var(--bg-input);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 10px 14px;
   font-size: 14px;
   color: var(--text-primary);
   outline: none;
-  transition: background-color 0.15s ease, box-shadow 0.15s ease;
+  transition: border-color var(--dur-fast) var(--ease-out),
+              box-shadow var(--dur-fast) var(--ease-out),
+              background-color var(--dur-fast) var(--ease-out);
 }
 .input::placeholder {
   color: var(--text-tertiary);
 }
+.input:hover {
+  border-color: var(--border-default);
+}
 .input:focus {
-  background: var(--bg-tertiary);
-  box-shadow: inset 0 -2px 0 var(--accent);
+  border-color: var(--gold-400);
+  box-shadow: 0 0 0 3px var(--gold-soft);
+  background: var(--bg-elevated);
 }
 select.input {
   appearance: auto;
 }
 
-/* ---- 组件：按钮 ---- */
+/* ── 主按钮（鎏金） ── */
 .btn-primary {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  height: 36px;
-  padding: 0 16px;
+  height: 40px;
+  padding: 0 20px;
   border: none;
-  border-radius: 6px;
-  background: var(--accent);
-  color: #111114;
-  font-size: 13px;
-  font-weight: 500;
+  border-radius: var(--radius-md);
+  background: var(--gold-500);
+  color: var(--text-inverse);
+  font-size: 14px;
+  font-weight: 600;
   cursor: pointer;
-  transition: filter 0.15s ease;
+  transition: background-color var(--dur-fast) var(--ease-out),
+              transform var(--dur-fast) var(--ease-out),
+              box-shadow var(--dur-fast) var(--ease-out);
 }
-.btn-primary:hover {
-  filter: brightness(1.08);
+.btn-primary:hover:not(:disabled) {
+  background: var(--gold-400);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+.btn-primary:active:not(:disabled) {
+  background: var(--gold-600);
+  transform: translateY(0);
 }
 .btn-primary:disabled {
   cursor: not-allowed;
   opacity: 0.5;
 }
 
+/* ── 次级按钮（描边） ── */
 .btn-ghost {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  height: 36px;
-  padding: 0 16px;
+  height: 40px;
+  padding: 0 20px;
   border: 1px solid var(--border-subtle);
-  border-radius: 6px;
+  border-radius: var(--radius-md);
   background: transparent;
   color: var(--text-secondary);
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 400;
   cursor: pointer;
-  transition: color 0.15s ease, border-color 0.15s ease;
+  transition: color var(--dur-fast) var(--ease-out),
+              border-color var(--dur-fast) var(--ease-out),
+              background-color var(--dur-fast) var(--ease-out);
 }
 .btn-ghost:hover {
   color: var(--text-primary);
-  border-color: var(--border-accent);
+  border-color: var(--border-default);
+  background: var(--bg-input);
 }
 .btn-ghost:disabled {
   cursor: not-allowed;
   opacity: 0.5;
 }
 
-/* ---- 旧浅色主题遗留色值的深色兜底 ---- */
-.text-slate-900,
-.text-slate-800,
-.text-slate-700,
-.text-slate-600 {
-  color: var(--text-primary);
+/* ── 危险按钮 ── */
+.btn-danger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 20px;
+  border: none;
+  border-radius: var(--radius-md);
+  background: var(--vermilion-500);
+  color: var(--text-inverse);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color var(--dur-fast) var(--ease-out),
+              transform var(--dur-fast) var(--ease-out);
 }
-.text-slate-500,
-.text-slate-400 {
-  color: var(--text-secondary);
+.btn-danger:hover:not(:disabled) {
+  background: var(--vermilion-400);
+  transform: translateY(-1px);
 }
-.text-slate-300,
-.text-slate-200,
-.text-slate-100 {
-  color: var(--text-primary);
+.btn-danger:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
 }
-.text-indigo-600,
-.text-indigo-500,
-.text-indigo-400 {
-  color: var(--accent);
+
+/* ════════════════════════════════════════════════════════════
+   动画关键帧
+   ════════════════════════════════════════════════════════════ */
+
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
-.bg-indigo-500,
-.bg-indigo-600 {
-  background: var(--accent);
-  color: #111114;
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
-.bg-indigo-500\/10,
-.bg-indigo-500\/15,
-.bg-indigo-500\/20,
-.bg-indigo-500\/25 {
-  background: var(--accent-soft);
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
-.border-indigo-500\/40,
-.border-indigo-500\/50,
-.border-indigo-500\/60 {
-  border-color: rgba(201, 169, 98, 0.4);
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
 }
-.text-emerald-600,
-.text-emerald-500,
-.text-emerald-400 {
-  color: var(--success);
+
+@keyframes skeletonPulse {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
 }
-.text-rose-600,
-.text-rose-500,
-.text-rose-400,
-.text-rose-300 {
-  color: var(--danger);
+
+/* ── 向导步骤滑动（前进左滑 / 后退右滑） ── */
+@keyframes slideLeft {
+  from { opacity: 0; transform: translateX(24px); }
+  to { opacity: 1; transform: translateX(0); }
 }
-.text-amber-600,
-.text-amber-500,
-.text-amber-400 {
-  color: var(--warning);
+@keyframes slideRight {
+  from { opacity: 0; transform: translateX(-24px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+.animate-slide-left { animation: slideLeft 0.35s var(--ease-out) forwards; }
+.animate-slide-right { animation: slideRight 0.35s var(--ease-out) forwards; }
+
+/* ── Toast 右上角滑入 ── */
+@keyframes toastIn {
+  from { opacity: 0; transform: translateX(40px) scale(0.98); }
+  to { opacity: 1; transform: translateX(0) scale(1); }
+}
+.toast-enter { animation: toastIn 0.3s var(--ease-out) forwards; }
+
+/* ── 折叠高度过渡（否决方案卡片展开/收起）── */
+.collapse-grid {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows var(--dur-normal) var(--ease-out);
+}
+.collapse-grid.open { grid-template-rows: 1fr; }
+.collapse-inner { overflow: hidden; min-height: 0; }
+
+/* ── 屏幕阅读器专用（视觉隐藏） ── */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ── 交错入场动画 ── */
+.stagger-item {
+  opacity: 0;
+  animation: fadeUp 0.5s var(--ease-out) forwards;
+}
+.stagger-item:nth-child(1) { animation-delay: 0ms; }
+.stagger-item:nth-child(2) { animation-delay: 60ms; }
+.stagger-item:nth-child(3) { animation-delay: 120ms; }
+.stagger-item:nth-child(4) { animation-delay: 180ms; }
+.stagger-item:nth-child(5) { animation-delay: 240ms; }
+.stagger-item:nth-child(6) { animation-delay: 300ms; }
+
+/* ── 骨架屏 ── */
+.skeleton {
+  background: var(--bg-input);
+  animation: skeletonPulse 1.5s ease-in-out infinite;
+  border-radius: var(--radius-md);
+}
+
+/* ── 减弱动效偏好 ── */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

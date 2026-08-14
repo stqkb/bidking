@@ -243,10 +243,10 @@ export default function LearnPage() {
           <button className="btn-ghost !px-3 !py-2 text-sm" onClick={() => goImage(1)} disabled={tasks.length === 0}>
             下一张 ▶
           </button>
-          <span className="text-xs text-slate-500">
+          <span className="text-xs text-content-secondary">
             {imgIdx >= 0 ? `${imgIdx + 1} / ${tasks.length}` : ""}
           </span>
-          <span className="text-xs text-slate-500">或</span>
+          <span className="text-xs text-content-secondary">或</span>
           <label className="btn-ghost !py-2 text-xs">
             上传新截图
             <input type="file" accept="image/*" className="hidden" onChange={(e) => upload(e.target.files?.[0])} />
@@ -257,7 +257,7 @@ export default function LearnPage() {
           <button className="btn-ghost !py-2 text-xs" onClick={sampleClip}>
             📋 采样剪贴板截图
           </button>
-          <label className="flex items-center gap-1.5 text-xs text-slate-500">
+          <label className="flex items-center gap-1.5 text-xs text-content-secondary">
             <input
               type="checkbox"
               className="accent-indigo-500"
@@ -266,9 +266,9 @@ export default function LearnPage() {
             />
             自动采样 Win+Shift+S
           </label>
-          <span className="text-xs text-slate-500">截屏前请先切到游戏画面</span>
+          <span className="text-xs text-content-secondary">截屏前请先切到游戏画面</span>
         </div>
-        <p className="mt-2 text-[11px] text-slate-500">
+        <p className="mt-2 text-[11px] text-content-secondary">
           提示：页面不会自动加载旧的剪贴板截图，只有新截的（Win+Shift+S）才会自动出现；如果显示不对，点「采样剪贴板截图」强制重载。
         </p>
       </Card>
@@ -296,14 +296,14 @@ export default function LearnPage() {
                 </div>
               </div>
               {box && (
-                <div className="mt-2 text-xs text-emerald-600">
+                <div className="mt-2 text-xs text-jade-400">
                   已框选：{box[0]},{box[1]} → {box[2]},{box[3]}（原始坐标）
                 </div>
               )}
             </Card>
           ) : (
             <Card title="选择图片" desc="请用上方下拉或 ◀/▶ 按钮选择一张包含该藏品的截图">
-              <div className="flex h-48 items-center justify-center rounded-xl border border-dashed border-ink-700 text-sm text-slate-400">
+              <div className="flex h-48 items-center justify-center rounded-xl border border-dashed border-ink-700 text-sm text-content-secondary">
                 尚未选择图片
               </div>
             </Card>
@@ -313,13 +313,13 @@ export default function LearnPage() {
             <div className="space-y-3">
               <div className="flex gap-2">
                 <button
-                  className={`rounded-lg border px-3 py-1.5 text-xs ${nameMode === "catalog" ? "border-indigo-500/60 bg-indigo-500/15 text-indigo-700" : "border-ink-700 text-slate-500"}`}
+                  className={`rounded-lg border px-3 py-1.5 text-xs ${nameMode === "catalog" ? "border-gold-400/60 bg-gold-soft text-gold-400" : "border-ink-700 text-content-secondary"}`}
                   onClick={() => setNameMode("catalog")}
                 >
                   从图鉴选
                 </button>
                 <button
-                  className={`rounded-lg border px-3 py-1.5 text-xs ${nameMode === "custom" ? "border-indigo-500/60 bg-indigo-500/15 text-indigo-700" : "border-ink-700 text-slate-500"}`}
+                  className={`rounded-lg border px-3 py-1.5 text-xs ${nameMode === "custom" ? "border-gold-400/60 bg-gold-soft text-gold-400" : "border-ink-700 text-content-secondary"}`}
                   onClick={() => setNameMode("custom")}
                 >
                   新藏品
@@ -335,7 +335,7 @@ export default function LearnPage() {
                     ] as const).map(([k, label]) => (
                       <button
                         key={k}
-                        className={`rounded-md px-2 py-1 ${learnShow === k ? "bg-indigo-500/20 text-indigo-700" : "text-slate-500 hover:text-slate-700"}`}
+                        className={`rounded-md px-2 py-1 ${learnShow === k ? "bg-gold-soft text-gold-400" : "text-content-secondary hover:text-content-primary"}`}
                         onClick={() => setLearnShow(k)}
                       >
                         {label}
@@ -396,8 +396,8 @@ export default function LearnPage() {
                   placeholder="如 4"
                 />
               </div>
-              <div className="text-[11px] text-slate-500">
-                当前格数下可选藏品 {filteredItems.length} 件；选项带 <span className="text-emerald-600">✓已学</span> 表示已保存过学习样本
+              <div className="text-[11px] text-content-secondary">
+                当前格数下可选藏品 {filteredItems.length} 件；选项带 <span className="text-jade-400">✓已学</span> 表示已保存过学习样本
               </div>
               <button className="btn-primary w-full" onClick={handleSave} disabled={!box || !name.trim()}>
                 {queue.length > 0
@@ -406,7 +406,7 @@ export default function LearnPage() {
                     ? "保存并学习下一件"
                     : "保存为学习样本"}
               </button>
-              <label className="flex items-center gap-1.5 text-xs text-slate-500">
+              <label className="flex items-center gap-1.5 text-xs text-content-secondary">
                 <input
                   type="checkbox"
                   className="accent-indigo-500"
@@ -417,7 +417,7 @@ export default function LearnPage() {
               </label>
               {name && learned.has(name) && (
                 <button
-                  className="btn-ghost w-full !py-1.5 text-xs text-rose-600"
+                  className="btn-ghost w-full !py-1.5 text-xs text-vermilion-400"
                   onClick={async () => {
                     await api.visionDeleteLearn([name]);
                     setLearned((prev) => {
@@ -431,8 +431,8 @@ export default function LearnPage() {
                   清除「{name}」已学样本（重新学习）
                 </button>
               )}
-              {msg && <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-600">{msg}</div>}
-              <p className="text-xs leading-relaxed text-slate-500">
+              {msg && <div className="rounded-xl border border-jade-400/30 bg-jade-soft px-3 py-2 text-xs text-jade-400">{msg}</div>}
+              <p className="text-xs leading-relaxed text-content-secondary">
                 保存后该区域会自动加入藏品图库：目录页能看到新图，后续拍卖截图按图匹配时会优先命中。
               </p>
             </div>

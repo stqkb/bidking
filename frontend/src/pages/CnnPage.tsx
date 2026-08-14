@@ -66,7 +66,7 @@ export default function CnnPage() {
               {busy ? "训练中…" : "开始训练 CNN"}
             </button>
           ) : (
-            <Badge className="border-emerald-500/40 bg-emerald-500/10 text-emerald-600">已训练</Badge>
+            <Badge className="border-jade-400/40 bg-jade-soft text-jade-400">已训练</Badge>
           )
         }
       >
@@ -76,7 +76,7 @@ export default function CnnPage() {
           <Stat label="真实校准样本" value={st?.calib?.ok ? `${st.calib.n} 局` : "—"} sub={`相关 ${st?.calib?.corr?.toFixed(2) ?? "—"}`} />
           <Stat label="校准参数" value={st?.calib?.ok ? `斜率 ${st.calib.slope?.toFixed(2)}` : "—"} sub="log 空间线性校准" tone="accent" />
         </div>
-        <p className="mt-3 text-xs leading-relaxed text-slate-500">
+        <p className="mt-3 text-xs leading-relaxed text-content-secondary">
           说明：20–40 个真实样本不足以端到端训练深度网络，因此先用 188 件图鉴按格数分布随机合成大量布局预训练 CNN，
           再用你的 31 局真实结果做线性校准。它是规则引擎的辅助估值模块，不取代表格 ML 主模型。
         </p>
@@ -88,7 +88,7 @@ export default function CnnPage() {
         </Card>
         <Card title="CNN 预测结果">
           {!st?.trained ? (
-            <div className="flex h-64 items-center justify-center text-slate-400">
+            <div className="flex h-64 items-center justify-center text-content-secondary">
               请先训练 CNN 模型
             </div>
           ) : (
@@ -103,14 +103,14 @@ export default function CnnPage() {
                 <Stat label="红品件数估计" value={pred?.count ? Math.round(pred.count) : "—"} sub="CNN 输出" />
               </div>
               {pred?.error && (
-                <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-sm text-rose-600">
+                <div className="rounded-xl border border-vermilion-400/30 bg-vermilion-soft px-3 py-2 text-sm text-vermilion-400">
                   {pred.error}
                 </div>
               )}
               <button className="btn-primary w-full" onClick={predict} disabled={busy}>
                 用当前棋盘预测
               </button>
-              <p className="text-xs leading-relaxed text-slate-500">
+              <p className="text-xs leading-relaxed text-content-secondary">
                 提示：也可以回到「新对局估值」，勾选“附加棋盘布局（CNN 融合估值）”，
                 估值接口会把 CNN 结果与规则引擎按 50/50 融合。
               </p>

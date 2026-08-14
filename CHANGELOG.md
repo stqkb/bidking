@@ -10,6 +10,7 @@
 ## 2026-08-14
 
 ### ✨ 新增 / 变更
+- **遗留页色值迁移**：AnnotatePage / CnnPage / LearnPage / OcrPage / BoardEditor 共 **131 处**旧色值（`text-slate-*`、`text-indigo-*`、`bg-emerald-*`、`border-rose-*` 等）全部迁移到 design token 语义类（`text-content-*`、`text-gold-400`、`text-jade-400`、`text-vermilion-400`、`bg-*-soft` 等）；**删除 index.css 旧类名兼容映射段**（394-485 行），构建零错误、全 src 旧色值清零（amber 保留为设计语义色）。
 - **后端封版字段**：`/api/estimate` 的 bid 响应新增 `confidence`（GP std 推算，0-1）与 `interval_method`（`gp_conformal` / `loocv_fallback` / `rule_mc`），供前端 IntervalBar 展示。
 - **Runbook 性能线**：LOOCV 中 GP 用 `fast_gp`（n_restarts=0，单次核优化，精度相同）——**重训耗时 8-9 分钟 → 78s**（8 倍加速，目标 <120s 达标）。
 - **估值结果 LRU 缓存**（任务14）：相同输入 + 模型版本直接命中，重复估值从 ~1.9s → **0.001s**（约 1900 倍），模型重训自动失效。

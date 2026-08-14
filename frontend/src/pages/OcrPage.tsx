@@ -222,7 +222,7 @@ export default function OcrPage() {
   return (
     <div className="space-y-5">
       {msg && (
-        <div className="rounded-xl border border-indigo-500/30 bg-indigo-500/10 px-4 py-2.5 text-sm text-indigo-600">
+        <div className="rounded-xl border border-gold-400/30 bg-gold-soft px-4 py-2.5 text-sm text-gold-400">
           {msg}
         </div>
       )}
@@ -244,8 +244,8 @@ export default function OcrPage() {
           </div>
         }
       >
-        {recMsg && <div className="mb-2 text-sm text-amber-600">{recMsg}</div>}
-        {recBusy && <div className="py-3 text-sm text-slate-500">识别中…（多张约 5-20 秒）</div>}
+        {recMsg && <div className="mb-2 text-sm text-amber-400">{recMsg}</div>}
+        {recBusy && <div className="py-3 text-sm text-content-secondary">识别中…（多张约 5-20 秒）</div>}
         {recResult?.ok && (
           <div className="space-y-3">
             {recResult.image_count > 1 && (
@@ -265,7 +265,7 @@ export default function OcrPage() {
                 <button className="btn-primary !py-2 text-xs" onClick={saveMulti} disabled={recSaving}>
                   {recSaving ? "保存中…" : "💾 保存并入训练"}
                 </button>
-                <span className="text-[11px] text-slate-500">
+                <span className="text-[11px] text-content-secondary">
                   将合并结果保存为一条历史对局，用于模型训练
                 </span>
               </div>
@@ -273,7 +273,7 @@ export default function OcrPage() {
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="text-left text-xs text-slate-500">
+                  <tr className="text-left text-xs text-content-secondary">
                     <th className="py-1.5 pr-3">藏品</th>
                     <th className="py-1.5 pr-3">格数</th>
                     <th className="py-1.5 pr-3">价值</th>
@@ -284,7 +284,7 @@ export default function OcrPage() {
                   {(recResult.items ?? []).filter((it: any) => it.is_red).map((it: any, i: number) => {
                     const m = it.matches?.[0];
                     return (
-                      <tr key={i} className="border-t border-ink-700/60 text-slate-600">
+                      <tr key={i} className="border-t border-ink-700/60 text-content-primary">
                         <td className="py-1.5 pr-3">
                           {it.name}
                           {it.source_image && (
@@ -295,14 +295,14 @@ export default function OcrPage() {
                           )}
                         </td>
                         <td className="py-1.5 pr-3">{it.grid_cells || "—"} 格</td>
-                        <td className="py-1.5 pr-3 text-emerald-600">{m?.value ? fmtMoney(m.value) : "—"}</td>
+                        <td className="py-1.5 pr-3 text-jade-400">{m?.value ? fmtMoney(m.value) : "—"}</td>
                         <td className="py-1.5">{((it.red_ratio ?? 0) * 100).toFixed(0)}%</td>
                       </tr>
                     );
                   })}
                   {(recResult.items ?? []).filter((it: any) => it.is_red).length === 0 && (
                     <tr>
-                      <td colSpan={4} className="py-3 text-center text-slate-400">
+                      <td colSpan={4} className="py-3 text-center text-content-secondary">
                         未检测到红色背景的红品（图片可能是结算界面）
                       </td>
                     </tr>
@@ -310,7 +310,7 @@ export default function OcrPage() {
                 </tbody>
               </table>
               {((recResult.items ?? []).length - (recResult.items ?? []).filter((it: any) => it.is_red).length) > 0 && (
-                <div className="mt-1 text-[11px] text-slate-500">
+                <div className="mt-1 text-[11px] text-content-secondary">
                   已按红色背景过滤，忽略非红品/UI 文字 {((recResult.items ?? []).length - (recResult.items ?? []).filter((it: any) => it.is_red).length)} 项
                 </div>
               )}
@@ -332,7 +332,7 @@ export default function OcrPage() {
             <button className="btn-ghost !py-2 text-xs" onClick={sampleClip} disabled={busy}>
               📋 采样剪贴板截图
             </button>
-            <label className="flex items-center gap-1.5 text-xs text-slate-500">
+            <label className="flex items-center gap-1.5 text-xs text-content-secondary">
               <input
                 type="checkbox"
                 className="accent-indigo-500"
@@ -344,12 +344,12 @@ export default function OcrPage() {
           </div>
         }
       >
-        <p className="text-xs leading-relaxed text-slate-500">
+        <p className="text-xs leading-relaxed text-content-secondary">
           名称/价格可直接在表格里修改；确认后：**价格以图片识别为准**，图鉴中同名条目直接覆盖系统价（原价），交易行价按 ×1.15（含税）同步，没有的按「名称+格数+价格」新增，并自动重训模型。
           已确认的图片会归档到「截图输入\已处理」。截图/剪贴板截取的图会直接自动识别进待确认列表。
         </p>
         {gridPending.length > 0 && (
-          <div className="mt-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-2.5 text-sm text-emerald-600">
+          <div className="mt-3 rounded-xl border border-jade-400/30 bg-jade-soft px-4 py-2.5 text-sm text-jade-400">
             识别摘要：当前待确认 {gridPending.length} 张图 · 红品共 <b>{gridTotals.items}</b> 件 · 红品总价值{" "}
             <b>{fmtMoney(gridTotals.value)}</b>
           </div>
@@ -374,7 +374,7 @@ export default function OcrPage() {
                 确认并入
               </button>
               <button
-                className="btn-ghost !py-1.5 text-xs text-rose-600"
+                className="btn-ghost !py-1.5 text-xs text-vermilion-400"
                 onClick={async () => {
                   await api.ocrDelete(t.id);
                   load();
@@ -396,15 +396,15 @@ export default function OcrPage() {
                   alt="原图"
                   className="h-44 w-full object-contain transition group-hover:scale-[1.03]"
                 />
-                <span className="absolute bottom-1 right-1 rounded bg-black/60 px-1.5 py-0.5 text-[10px] text-slate-700">
+                <span className="absolute bottom-1 right-1 rounded bg-black/60 px-1.5 py-0.5 text-[10px] text-content-primary">
                   点击放大
                 </span>
               </button>
               {itemsOf(t).some((it) => !it.matched) && (
-                <div className="mt-1.5 text-[11px] text-amber-600">⚠ 含未匹配项，请放大核对</div>
+                <div className="mt-1.5 text-[11px] text-amber-400">⚠ 含未匹配项，请放大核对</div>
               )}
               {itemsOf(t).length === 0 && (
-                <div className="mt-1.5 text-[11px] text-amber-600">⚠ 未识别到藏品，请查看原图</div>
+                <div className="mt-1.5 text-[11px] text-amber-400">⚠ 未识别到藏品，请查看原图</div>
               )}
             </div>
             <div className="min-w-0">
@@ -445,14 +445,14 @@ export default function OcrPage() {
                 </div>
               )}
           {itemsOf(t).length === 0 ? (
-            <div className="flex h-full items-center justify-center py-10 text-center text-sm text-slate-400">
+            <div className="flex h-full items-center justify-center py-10 text-center text-sm text-content-secondary">
               未识别到藏品（可能是空图或识别失败）
             </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="text-left text-xs text-slate-500">
+                  <tr className="text-left text-xs text-content-secondary">
                     <th className="py-1.5 pr-3">名称</th>
                     <th className="py-1.5 pr-3">价格（原价）</th>
                     <th className="py-1.5 pr-3">格数</th>
@@ -464,7 +464,7 @@ export default function OcrPage() {
                   {itemsOf(t).map((it, i) => {
                     const m = it.matches?.[0];
                     return (
-                      <tr key={i} className="border-t border-ink-700/60 text-slate-600">
+                      <tr key={i} className="border-t border-ink-700/60 text-content-primary">
                         <td className="py-1.5 pr-3">
                           <input
                             className="input !py-1 text-sm"
@@ -481,14 +481,14 @@ export default function OcrPage() {
                           />
                           <span className="ml-1 inline-flex flex-col gap-0.5 align-middle">
                             {it.price_suspect && (
-                              <span className="text-[10px] text-amber-600">价格存疑</span>
+                              <span className="text-[10px] text-amber-400">价格存疑</span>
                             )}
                             {it.matched && it.price_mismatch && (
                               <span className="text-[10px] text-sky-600">将以图片价覆盖</span>
                             )}
                             {it.matched && it.price_suspect && (
                               <button
-                                className="text-[10px] text-emerald-600 hover:underline"
+                                className="text-[10px] text-jade-400 hover:underline"
                                 onClick={() =>
                                   setItem(t.id, i, { price: it.matches?.[0]?.value ?? it.price })
                                 }
@@ -509,19 +509,19 @@ export default function OcrPage() {
                         </td>
                         <td className="py-1.5 pr-3">
                           {it.matched && m ? (
-                            <span className="text-emerald-600">
+                            <span className="text-jade-400">
                               {m.name}（{m.grid_cells}格 · 系统价 {fmtMoney(m.value)} / 交易行价 {fmtMoney(m.current_value ?? m.value * 1.15)} 含税）
                               {it.matched_by_price && (
-                                <span className="ml-1 text-amber-600">按价格匹配</span>
+                                <span className="ml-1 text-amber-400">按价格匹配</span>
                               )}
                             </span>
                           ) : (
                             <span className="flex flex-wrap items-center gap-1.5">
-                              <span className="text-amber-600">未匹配</span>
+                              <span className="text-amber-400">未匹配</span>
                               {it.matches?.map((mm, k) => (
                                 <button
                                   key={k}
-                                  className="rounded-md border border-amber-500/40 bg-amber-500/10 px-1.5 py-0.5 text-[11px] text-amber-700 hover:bg-amber-500/20"
+                                  className="rounded-md border border-amber-500/40 bg-amber-soft px-1.5 py-0.5 text-[11px] text-amber-400 hover:bg-amber-500/20"
                                   onClick={() => setItem(t.id, i, { name: mm.name })}
                                 >
                                   按价格匹配：{mm.name}
@@ -537,7 +537,7 @@ export default function OcrPage() {
                                   视觉识别：{top.name}（{top.score.toFixed(2)}）
                                 </div>
                               ) : (
-                                <div className="mt-0.5 text-[11px] text-slate-500">
+                                <div className="mt-0.5 text-[11px] text-content-secondary">
                                   图库暂无此藏品图，确认后自动学习
                                 </div>
                               );
@@ -557,10 +557,10 @@ export default function OcrPage() {
       ))}
 
       {pending.length === 0 && tasks.length > 0 && (
-        <Card className="py-8 text-center text-slate-500">没有待确认的识别结果</Card>
+        <Card className="py-8 text-center text-content-secondary">没有待确认的识别结果</Card>
       )}
       {tasks.length === 0 && (
-        <Card className="py-10 text-center text-slate-500">
+        <Card className="py-10 text-center text-content-secondary">
           先把截图放进「截图输入」对应格数文件夹，然后点「扫描并识别」
         </Card>
       )}
@@ -575,7 +575,7 @@ export default function OcrPage() {
             className="max-h-full max-w-full rounded-xl shadow-2xl"
           />
           <button
-            className="absolute right-5 top-5 rounded-full bg-ink-800 px-3 py-1.5 text-sm text-slate-800"
+            className="absolute right-5 top-5 rounded-full bg-ink-800 px-3 py-1.5 text-sm text-content-primary"
             onClick={() => setZoom(null)}
           >
             ✕ 关闭

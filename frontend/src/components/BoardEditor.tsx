@@ -106,15 +106,15 @@ export default function BoardEditor({ board, onChange }: Props) {
         <button
           className={`rounded-lg border px-3 py-1.5 text-xs transition ${
             erase
-              ? "border-rose-500/50 bg-rose-500/15 text-rose-700"
-              : "border-ink-700 bg-ink-800 text-slate-600 hover:text-slate-800"
+              ? "border-vermilion-400/50 bg-vermilion-soft text-vermilion-400"
+              : "border-ink-700 bg-ink-800 text-content-primary hover:text-content-primary"
           }`}
           onClick={() => setErase(!erase)}
         >
           {erase ? "橡皮擦开" : "橡皮擦"}
         </button>
         <button
-          className="rounded-lg border border-ink-700 bg-ink-800 px-3 py-1.5 text-xs text-slate-600 transition hover:text-slate-800"
+          className="rounded-lg border border-ink-700 bg-ink-800 px-3 py-1.5 text-xs text-content-primary transition hover:text-content-primary"
           onClick={() => {
             setHistory((hst) => [...hst.slice(-19), board]);
             onChange(Array.from({ length: N }, () => Array(N).fill(0)));
@@ -123,7 +123,7 @@ export default function BoardEditor({ board, onChange }: Props) {
           清空
         </button>
         <button
-          className="rounded-lg border border-ink-700 bg-ink-800 px-3 py-1.5 text-xs text-slate-600 transition hover:text-slate-800 disabled:opacity-40"
+          className="rounded-lg border border-ink-700 bg-ink-800 px-3 py-1.5 text-xs text-content-primary transition hover:text-content-primary disabled:opacity-40"
           disabled={history.length === 0}
           onClick={() => {
             const prev = history[history.length - 1];
@@ -133,7 +133,7 @@ export default function BoardEditor({ board, onChange }: Props) {
         >
           撤销
         </button>
-        <span className="ml-auto text-xs text-slate-500">点击格子摆放 {size} 格矩形 · 自动匹配形状</span>
+        <span className="ml-auto text-xs text-content-secondary">点击格子摆放 {size} 格矩形 · 自动匹配形状</span>
       </div>
       <div
         className="grid w-fit gap-[3px] rounded-xl border border-ink-700 bg-ink-900 p-2"

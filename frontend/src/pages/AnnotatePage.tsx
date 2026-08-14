@@ -576,7 +576,7 @@ export default function AnnotatePage() {
           <button className="btn-ghost !py-2 text-xs" onClick={() => imagePath && detect(imagePath)} disabled={busy}>
             🔄 重新识别
           </button>
-          <label className="flex items-center gap-1.5 text-xs text-slate-400">
+          <label className="flex items-center gap-1.5 text-xs text-content-secondary">
             <input
               type="checkbox"
               className="accent-indigo-500"
@@ -585,7 +585,7 @@ export default function AnnotatePage() {
             />
             自动采样 Win+Shift+S（截图即识别）
           </label>
-          <span className="text-xs text-slate-500">按格数筛选红品：</span>
+          <span className="text-xs text-content-secondary">按格数筛选红品：</span>
           <select className="input w-28 !py-1.5 text-xs" value={filterCells} onChange={(e) => setFilterCells(e.target.value)}>
             <option value="">全部格数</option>
             {Array.from(new Set(items.map((it) => it.grid_cells))).sort((a, b) => a - b).map((g) => (
@@ -595,19 +595,19 @@ export default function AnnotatePage() {
         </div>
         {images.length > 0 && (
           <div className="mt-3 flex flex-wrap items-center gap-2">
-            <span className="text-[11px] text-slate-400">图片（{images.length}）：</span>
+            <span className="text-[11px] text-content-secondary">图片（{images.length}）：</span>
             {images.map((img, i) => (
               <button
                 key={img.path}
                 className={`group relative flex items-center gap-1.5 rounded-lg border px-2 py-1 text-[11px] transition ${
-                  i === activeIdx ? "border-indigo-500/60 bg-indigo-500/10 text-indigo-400" : "border-ink-700 text-slate-200 hover:border-ink-500"
+                  i === activeIdx ? "border-gold-400/60 bg-gold-soft text-gold-400" : "border-ink-700 text-content-primary hover:border-ink-500"
                 }`}
                 onClick={() => switchImage(i)}
               >
                 <img src={img.url} alt="" className="h-6 w-6 rounded object-contain bg-ink-900" />
                 <span className="max-w-28 truncate">{img.name.slice(0, 14)}</span>
                 <span
-                  className="ml-0.5 text-rose-400 opacity-0 transition group-hover:opacity-100"
+                  className="ml-0.5 text-vermilion-400 opacity-0 transition group-hover:opacity-100"
                   onClick={(e) => {
                     e.stopPropagation();
                     removeImage(i);
@@ -619,7 +619,7 @@ export default function AnnotatePage() {
             ))}
           </div>
         )}
-        {msg && <div className="mt-2 text-sm text-emerald-600">{msg}</div>}
+        {msg && <div className="mt-2 text-sm text-jade-400">{msg}</div>}
       </Card>
 
       {imageUrl ? (
@@ -631,21 +631,21 @@ export default function AnnotatePage() {
               <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
                 {settle && (settle.total_value != null || settle.deal_price != null || settle.profit != null) && (
                   <>
-                    <span className="text-xs text-slate-400">
+                    <span className="text-xs text-content-secondary">
                       总价值{" "}
-                      <b className="text-emerald-400">
+                      <b className="text-jade-400">
                         {settle.total_value != null ? settle.total_value.toLocaleString() : "—"}
                       </b>
                     </span>
-                    <span className="text-xs text-slate-400">
+                    <span className="text-xs text-content-secondary">
                       成交价{" "}
                       <b className="text-sky-400">
                         {settle.deal_price != null ? settle.deal_price.toLocaleString() : "—"}
                       </b>
                     </span>
-                    <span className="text-xs text-slate-400">
+                    <span className="text-xs text-content-secondary">
                       收益{" "}
-                      <b className={(settle.profit ?? 0) >= 0 ? "text-emerald-400" : "text-rose-400"}>
+                      <b className={(settle.profit ?? 0) >= 0 ? "text-jade-400" : "text-vermilion-400"}>
                         {settle.profit != null ? settle.profit.toLocaleString() : "—"}
                       </b>
                     </span>
@@ -674,7 +674,7 @@ export default function AnnotatePage() {
                   return (
                     <div
                       key={i}
-                      className={`pointer-events-none absolute border-2 ${checked.has(i) ? "border-emerald-400" : "border-fuchsia-400"}`}
+                      className={`pointer-events-none absolute border-2 ${checked.has(i) ? "border-jade-400" : "border-fuchsia-400"}`}
                       style={{
                         left: c.icon[0] * sx,
                         top: c.icon[1] * sx,
@@ -698,7 +698,7 @@ export default function AnnotatePage() {
               </div>
             </div>
             {manualOpen && (
-              <div className="mt-2 rounded-xl border border-amber-500/30 bg-amber-500/5 p-2.5">
+              <div className="mt-2 rounded-xl border border-amber-400/30 bg-amber-500/5 p-2.5">
                 <div className="mb-2 flex flex-wrap items-center gap-2">
                   <input
                     className="input w-20 !py-1 text-xs"
@@ -737,12 +737,12 @@ export default function AnnotatePage() {
                   >
                     保存手动红品
                   </button>
-                  {busy && <span className="text-[11px] text-amber-300">处理中…</span>}
-                  {manualBox && <span className="text-[11px] text-slate-400">已框选 ({manualBox[0]},{manualBox[1]})</span>}
+                  {busy && <span className="text-[11px] text-amber-400">处理中…</span>}
+                  {manualBox && <span className="text-[11px] text-content-secondary">已框选 ({manualBox[0]},{manualBox[1]})</span>}
                 </div>
-                <div className="mb-1 text-[11px] text-slate-400">
+                <div className="mb-1 text-[11px] text-content-secondary">
                   框选漏检红品图标后，点击下方图片选择藏品（共 {sortedManualItems.length} 件）：
-                  {manualName && <span className="ml-1 text-amber-300">已选：{manualName}</span>}
+                  {manualName && <span className="ml-1 text-amber-400">已选：{manualName}</span>}
                 </div>
                 <div className="grid max-h-60 grid-cols-3 gap-1.5 overflow-y-auto pr-1 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6">
                   {sortedManualItems.map((it) => {
@@ -767,12 +767,12 @@ export default function AnnotatePage() {
                               loading="lazy"
                             />
                           ) : (
-                            <span className="text-base text-slate-600">{it.name.slice(0, 1)}</span>
+                            <span className="text-base text-content-primary">{it.name.slice(0, 1)}</span>
                           )}
                         </div>
                         <div className="px-1 py-0.5">
-                          <div className="truncate text-[10px] text-slate-200">{it.name}</div>
-                          <div className="text-[9px] text-slate-500">{it.grid_cells}格 · {fmtMoney(it.value)}</div>
+                          <div className="truncate text-[10px] text-content-primary">{it.name}</div>
+                          <div className="text-[9px] text-content-secondary">{it.grid_cells}格 · {fmtMoney(it.value)}</div>
                         </div>
                       </button>
                     );
@@ -784,7 +784,7 @@ export default function AnnotatePage() {
 
           <Card title="自动识别结果（已计入本局汇总）" desc="识别到的红品已自动加入下方汇总，可在此参考或直接编辑汇总">
             <div className="space-y-2">
-              {cells.length === 0 && !busy && <div className="py-4 text-center text-sm text-slate-400">未检测到红品格子</div>}
+              {cells.length === 0 && !busy && <div className="py-4 text-center text-sm text-content-secondary">未检测到红品格子</div>}
               {cells.map((c, i) => {
                 const top = c.matches[0];
                 const thumb = `/api/vision/crop_box?image_path=${encodeURIComponent(imagePath)}&box=${c.icon.join(",")}`;
@@ -795,15 +795,15 @@ export default function AnnotatePage() {
                   >
                     <img src={thumb} alt="" className="h-11 w-11 shrink-0 rounded border border-ink-700 object-contain bg-ink-900" />
                     <div className="min-w-0 flex-1">
-                      <div className="truncate text-xs text-slate-200">{top?.name ?? "未识别"}</div>
-                      <span className="text-[10px] text-slate-500">
+                      <div className="truncate text-xs text-content-primary">{top?.name ?? "未识别"}</div>
+                      <span className="text-[10px] text-content-secondary">
                         {top ? `${top.grid_cells ?? 0}格 · ${(top.score * 100).toFixed(0)}% · ${top.value != null ? fmtMoney(top.value) : "—"}` : "无候选"}
                       </span>
                     </div>
                   </div>
                 );
               })}
-              <div className="text-[11px] text-slate-500">
+              <div className="text-[11px] text-content-secondary">
                 提示：识别结果已自动入汇总；如需补录漏检藏品，请用上方"手动添加漏检红品"；识别错的在下方汇总里删除或改选。
               </div>
             </div>
@@ -811,7 +811,7 @@ export default function AnnotatePage() {
         </div>
       ) : (
         <Card title="选择图片" desc="先上传截图、截取游戏画面或采样剪贴板">
-          <div className="flex h-40 items-center justify-center rounded-xl border border-dashed border-ink-700 text-sm text-slate-400">
+          <div className="flex h-40 items-center justify-center rounded-xl border border-dashed border-ink-700 text-sm text-content-secondary">
             尚未选择图片
           </div>
         </Card>
@@ -830,7 +830,7 @@ export default function AnnotatePage() {
               value={summary.items.reduce((s, it) => s + it.grid_cells, 0)}
             />
             <div>
-              <div className="text-xs text-slate-500">总价值（可改）</div>
+              <div className="text-xs text-content-secondary">总价值（可改）</div>
               <input
                 className="input mt-1 w-full !py-1 text-sm tabular-nums"
                 type="number"
@@ -840,7 +840,7 @@ export default function AnnotatePage() {
               />
             </div>
             <div>
-              <div className="text-xs text-slate-500">成交价（可改）</div>
+              <div className="text-xs text-content-secondary">成交价（可改）</div>
               <input
                 className="input mt-1 w-full !py-1 text-sm tabular-nums"
                 type="number"
@@ -850,10 +850,10 @@ export default function AnnotatePage() {
               />
             </div>
             <div>
-              <div className="text-xs text-slate-500">收益（= 总价值−成交价，自动算）</div>
+              <div className="text-xs text-content-secondary">收益（= 总价值−成交价，自动算）</div>
               <input
                 className={`input mt-1 w-full !py-1 text-sm tabular-nums ${
-                  summary.settle.profit != null && summary.settle.profit < 0 ? "!text-rose-400" : "!text-emerald-400"
+                  summary.settle.profit != null && summary.settle.profit < 0 ? "!text-vermilion-400" : "!text-jade-400"
                 }`}
                 type="number"
                 value={summary.settle.profit ?? ""}
@@ -870,11 +870,11 @@ export default function AnnotatePage() {
             const calc = tv - dp;
             const ok = Math.abs(pf - calc) <= 0.5;
             return ok ? (
-              <div className="mt-2 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-1.5 text-xs text-emerald-400">
+              <div className="mt-2 rounded-lg border border-jade-400/40 bg-jade-soft px-3 py-1.5 text-xs text-jade-400">
                 ✓ 收益核验通过：{fmtMoney(pf)} = 总价值 − 成交价
               </div>
             ) : (
-              <div className="mt-2 rounded-lg border border-rose-500/40 bg-rose-500/10 px-3 py-1.5 text-xs text-rose-400">
+              <div className="mt-2 rounded-lg border border-vermilion-400/40 bg-vermilion-soft px-3 py-1.5 text-xs text-vermilion-400">
                 ✗ 收益核验不通过：收益应为 总价值 − 成交价 = {fmtMoney(calc)}（当前 {fmtMoney(pf)}）。保存后该局将标红，且<strong>不进入模型训练</strong>。
               </div>
             );
@@ -882,7 +882,7 @@ export default function AnnotatePage() {
           <div className="mt-2 space-y-1">
             {summary.items.map((it, i) => (
               <div key={i} className="flex items-center gap-2 rounded-lg border border-ink-700/60 bg-ink-900/40 p-1.5 text-xs">
-                <span className="text-slate-500">{i + 1}.</span>
+                <span className="text-content-secondary">{i + 1}.</span>
                 <select
                   className="input min-w-32 flex-1 !py-0.5 text-xs"
                   value={it.name}
@@ -914,7 +914,7 @@ export default function AnnotatePage() {
                   onChange={(e) => updateSummaryItem(i, { value: Number(e.target.value) || 0 })}
                 />
                 <button
-                  className="text-xs text-rose-400 hover:text-rose-500"
+                  className="text-xs text-vermilion-400 hover:text-vermilion-400"
                   onClick={() => removeSummaryItem(i)}
                 >
                   ✕
@@ -934,7 +934,7 @@ export default function AnnotatePage() {
             </button>
           </div>
           <div className="mt-3 flex flex-wrap items-center gap-3">
-            <label className="flex cursor-pointer items-center gap-2 text-xs text-slate-600">
+            <label className="flex cursor-pointer items-center gap-2 text-xs text-content-primary">
               <input
                 type="checkbox"
                 checked={won}
@@ -947,7 +947,7 @@ export default function AnnotatePage() {
               {summarySaving ? "保存中…" : "💾 保存本局（并入训练）"}
             </button>
             <button
-              className="btn-ghost !py-2 text-xs text-rose-400"
+              className="btn-ghost !py-2 text-xs text-vermilion-400"
               onClick={resetAll}
             >
               清空本局
@@ -964,16 +964,16 @@ export default function AnnotatePage() {
               return (
                 <div key={a.id} className="rounded-xl border border-ink-700 bg-ink-900 p-2">
                   <img src={thumb} alt="" className="h-24 w-full rounded-lg border border-ink-700 object-contain bg-ink-950" />
-                  <div className="mt-1.5 text-xs font-semibold text-slate-200">
+                  <div className="mt-1.5 text-xs font-semibold text-content-primary">
                     {KIND_LABEL[a.kind as Kind] ?? a.kind}
                   </div>
-                  <div className="text-[11px] text-slate-400">
+                  <div className="text-[11px] text-content-secondary">
                     {a.name || "—"}
                     {a.grid_cells ? ` · ${a.grid_cells}格` : ""}
                     {a.value != null ? ` · ${a.value.toLocaleString()}` : ""}
                   </div>
                   <button
-                    className="mt-1.5 w-full rounded-lg border border-rose-500/40 bg-rose-500/10 py-1 text-[11px] text-rose-300"
+                    className="mt-1.5 w-full rounded-lg border border-vermilion-400/40 bg-vermilion-soft py-1 text-[11px] text-vermilion-400"
                     onClick={() => deleteAnno(a.id)}
                   >
                     删除
