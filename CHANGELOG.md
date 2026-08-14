@@ -10,7 +10,7 @@
 ## 2026-08-14
 
 ### ✨ 新增 / 变更
-### ✨ 新增 / 变更
+- **视觉识别修复（玩家名误识别为藏品）**：`_board_items` 增强过滤——①**序号前缀剥离**（`1顺意相伴蘑菇汤`→`顺意相伴蘑菇汤`，此前按噪音剔除导致漏识别）；②**系统公告横幅过滤**（新增 `_BANNER_KEYWORDS`：恭喜/运气爆棚/收获百万等）；③**结算区过滤**（拍得者/成交价/收益标签区域的玩家昵称与成交信息不再当藏品）；④**低置信丢弃**（OCR conf<0.6 且图鉴不匹配的文字框跳过）。验证：61 张截图扫描玩家名/公告误入 0，正常藏品识别不受影响。
 - **一键归档端点兼容前端向导结构**：`POST /api/quick-archive` 改为 `async` 接收 `Request`，兼容前端 `{ input: {red_avg, red_count, total_grids, known_items(size/value)}, result: {red/full/bid} }` 嵌套结构与原有平铺结构；`known_items` 兼容 `size`/`grid_cells` 字段、`selected_red_grids`/`selected_red_count` 锁定候选优先。前端"一键归档"按钮已可直接使用（返回 `{ok, game_no, status}`）。
 - **OCR 待确认铃铛计数修复 + 清除入口**：根因是 `list_tasks()` 返回全部任务（含 confirmed 历史记录），前端误用 `tasks.length` 当待确认数（16 个全是 8-12 的已确认任务，真实待确认为 0）。修复：`/api/ocr/status` 新增 `pending_count`（仅 status=pending），App.tsx 改用该字段。新增 `POST /api/ocr/clear-pending`（清空待确认任务及关联样本）+ `api.ocrClearPending`；标注校准页顶部新增「待确认 OCR 任务」区域（列表 + 全部清除按钮，二次确认）。
 - **冷启动优化（7.19s → 1.08s，6.6 倍）**：延迟导入重依赖——`vision.py` 的 torch/torchvision（CUDA 初始化 ~5-10s）改在 `_get_model`/`_encode` 内按需导入；`ocr.py` 的 `rapidocr_onnxruntime`（onnxruntime ~2s）与 GPU DLL 检测改在 `get_ocr` 内首次调用时执行；`ml.py` 的 sklearn（~1.75s）改在 `_make_models` 内导入；`cnn` 模块（torch）从 `main.py`/`estimate.py`/`estimator.py` 顶层改为惰性导入。估值流程不再加载 torch/onnxruntime；首次调用视觉/ML 时才加载。

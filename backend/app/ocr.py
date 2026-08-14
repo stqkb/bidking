@@ -59,6 +59,11 @@ _STOPWORDS = {
     "拍得者", "收益", "当前已揭示总价值", "最终成交价", "已揭示", "总价值",
     "成交价", "独白", "经过不懈努力", "成功达到", "段位", "福", "美",
 }
+# 系统公告横幅关键词（包含匹配）：公告/祝贺类文字不是藏品名
+_BANNER_KEYWORDS = (
+    "恭喜", "运气爆棚", "运气", "爆棚", "收获", "百万级", "千万级",
+    "拍卖场", "小可肥",
+)
 
 
 def get_ocr():
@@ -231,6 +236,15 @@ def _match_by_name(conn, name: str) -> list[dict[str, Any]]:
 
 
 def _board_items(conn, boxes: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    # 结算区锚点：拍得者/总价值/成交价/收益 等结算标签的 y 上界。
+    # 玩家昵称（拍得者）与成交信息集中在该区域，不属于藏品名称。
+    settle_ys = [
+        b["y0"]
+        for b in boxes
+        if any(k in b["text"] for k in ("拍得者", "总价值", "成交价", "收益", "已揭示", "最终成交"))
+    ]
+    settle_lo = min(settle_ys) - 20 if settle_ys else None
+
     # 合并同列上下紧邻的名称片段（如「吉星」+「高照」=「吉星高照」）
     merged: list[dict[str, Any]] = []
     for b in sorted(boxes, key=lambda x: (x["cy"], x["cx"])):
@@ -239,10 +253,21 @@ def _board_items(conn, boxes: list[dict[str, Any]]) -> list[dict[str, Any]]:
             continue
         if re.match(r"^[\d\.\-\+%]+$", t):
             continue  # 纯数字/符号碎片（如 47.、5,262K 残留）
-        if re.match(r"^\d+[\u4e00-\u9fffA-Za-z]", t):
-            continue  # 序号+名称碎片（如 1德莱）属于噪音
         if any(k in t for k in ("总价值", "成交价", "收益", "拍得者", "已揭示", "经过", "成功", "段位", "独白")):
             continue
+        # 系统公告横幅（恭喜/运气爆棚/收获百万 等）不是藏品名
+        if any(k in t for k in _BANNER_KEYWORDS):
+            continue
+        # 结算区（拍得者昵称/成交信息）文字不是藏品名
+        if settle_lo is not None and b["y0"] >= settle_lo:
+            continue
+        # 序号前缀剥离：如「1顺意相伴蘑菇汤」→「顺意相伴蘑菇汤」。
+        # 数字仅作序号/件数标记，剥离后才是名称本体（此前直接按噪音剔除会漏识别）。
+        mnum = re.match(r"^(\d+)([\u4e00-\u9fffA-Za-z].*)$", t)
+        if mnum:
+            t = mnum.group(2).strip()
+            if len(t) < 2 or not _norm_name(t):
+                continue
         placed = False
         for m in merged:
             if abs(m["cx"] - b["cx"]) < 30 and 0 < b["cy"] - m["cy"] < 45:
@@ -282,6 +307,9 @@ def _board_items(conn, boxes: list[dict[str, Any]]) -> list[dict[str, Any]]:
         if dup:
             continue
         matches = _match_by_name(conn, t)
+        # 低置信且图鉴无法匹配的文字框（玩家昵称/OCR 碎片）直接丢弃
+        if not matches and b["conf"] < 0.6:
+            continue
         items.append({
             "name": t,
             "price": matches[0]["value"] if matches else 0,
