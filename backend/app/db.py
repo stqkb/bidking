@@ -54,7 +54,8 @@ CREATE TABLE IF NOT EXISTS game_records (
     profit REAL,
     winner TEXT,
     items_json TEXT,
-    won INTEGER
+    won INTEGER,
+    profit_ok INTEGER
 );
 
 CREATE TABLE IF NOT EXISTS user_records (
@@ -121,6 +122,10 @@ def init_db() -> None:
         gcols = [r[1] for r in conn.execute("PRAGMA table_info(game_records)").fetchall()]
         if "won" not in gcols:
             conn.execute("ALTER TABLE game_records ADD COLUMN won INTEGER")
+        if "profit_ok" not in gcols:
+            conn.execute("ALTER TABLE game_records ADD COLUMN profit_ok INTEGER")
+            # 历史场次此前已统一核验收益=成交价-总价值，默认视为核验通过
+            conn.execute("UPDATE game_records SET profit_ok = 1 WHERE profit_ok IS NULL")
 
 
 def rows_to_dicts(rows: list[sqlite3.Row]) -> list[dict[str, Any]]:

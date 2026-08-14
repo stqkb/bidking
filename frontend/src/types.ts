@@ -106,6 +106,7 @@ export interface GameRecord {
   profit: number | null;
   winner: string | null;
   won: number | null;  // 本人是否竞拍成功：1 成功 / 0 未成功 / null 未标记
+  profit_ok?: number | null;  // 收益核验：1 通过 / 0 不通过(收益≠成交价−总价值，不进训练) / null 未核验
   items: { name: string; grid_cells: number; sys_price?: number | null; trade_price?: number | null }[];
 }
 

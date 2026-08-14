@@ -38,7 +38,7 @@ def _ds_fingerprint(conn) -> str:
     """game_records + catalog_items 的轻量 hash（数据变化即变化）。"""
     h = hashlib.md5()
     for r in conn.execute(
-        "SELECT game_no, red_avg, red_count, red_grids, red_value, full_value, items_json "
+        "SELECT game_no, red_avg, red_count, red_grids, red_value, full_value, items_json, profit_ok "
         "FROM game_records ORDER BY game_no"
     ).fetchall():
         h.update(repr(tuple(r)).encode("utf-8", "ignore"))
@@ -87,6 +87,7 @@ def build_dataset(conn) -> tuple[list[dict[str, Any]], list[float], list[float]]
         """SELECT game_no, red_avg, red_count, red_grids, red_value, full_value, items_json
            FROM game_records
            WHERE red_avg > 0 AND red_value > 0 AND full_value > 0
+             AND COALESCE(profit_ok, 1) = 1
            ORDER BY game_no"""
     ).fetchall()
     if not stats:

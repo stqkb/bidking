@@ -412,6 +412,13 @@ export default function AnnotatePage() {
     setBusy(false);
   };
 
+  const updateSettle = (k: "total_value" | "deal_price" | "profit", v: string) => {
+    setSummary((prev) => ({
+      ...prev,
+      settle: { ...prev.settle, [k]: v === "" ? null : Number(v) || 0 },
+    }));
+  };
+
   const saveSummary = async () => {
     if (summary.items.length === 0) {
       setMsg("还没有汇总红品，请先勾选保存");
@@ -430,11 +437,15 @@ export default function AnnotatePage() {
       });
       const j = await r.json();
       if (j.ok) {
+        const tip =
+          j.profit_ok === 0
+            ? "，⚠️ 收益核验不通过（收益 ≠ 成交价−总价值），已保存但未进入模型训练"
+            : "，模型后台重训中";
         setMsg(
           `已保存为对局 #${j.game_no}：红品 ${j.red_count} 件 / ${j.total_cells} 格（均格 ${j.red_avg}）` +
           (j.settlement?.total_value != null ? `，总价值 ${j.settlement.total_value.toLocaleString()}` : "") +
           (j.settlement?.deal_price != null ? `，成交价 ${j.settlement.deal_price.toLocaleString()}` : "") +
-          "，模型后台重训中",
+          tip,
         );
         // 保存成功：清空本局所有图片与汇总，准备下一局
         resetAll();
@@ -778,22 +789,56 @@ export default function AnnotatePage() {
               label="红品总格数"
               value={summary.items.reduce((s, it) => s + it.grid_cells, 0)}
             />
-            <Stat
-              label="总价值"
-              value={summary.settle.total_value != null ? fmtMoney(summary.settle.total_value) : "—"}
-              tone="ok"
-            />
-            <Stat
-              label="成交价"
-              value={summary.settle.deal_price != null ? fmtMoney(summary.settle.deal_price) : "—"}
-              tone="money"
-            />
-            <Stat
-              label="收益"
-              value={summary.settle.profit != null ? fmtMoney(summary.settle.profit) : "—"}
-              tone={summary.settle.profit != null && summary.settle.profit < 0 ? "danger" : "ok"}
-            />
+            <div>
+              <div className="text-xs text-slate-500">总价值（可改）</div>
+              <input
+                className="input mt-1 w-full !py-1 text-sm tabular-nums"
+                type="number"
+                value={summary.settle.total_value ?? ""}
+                placeholder="—"
+                onChange={(e) => updateSettle("total_value", e.target.value)}
+              />
+            </div>
+            <div>
+              <div className="text-xs text-slate-500">成交价（可改）</div>
+              <input
+                className="input mt-1 w-full !py-1 text-sm tabular-nums"
+                type="number"
+                value={summary.settle.deal_price ?? ""}
+                placeholder="—"
+                onChange={(e) => updateSettle("deal_price", e.target.value)}
+              />
+            </div>
+            <div>
+              <div className="text-xs text-slate-500">收益（可改）</div>
+              <input
+                className={`input mt-1 w-full !py-1 text-sm tabular-nums ${
+                  summary.settle.profit != null && summary.settle.profit < 0 ? "!text-rose-400" : "!text-emerald-400"
+                }`}
+                type="number"
+                value={summary.settle.profit ?? ""}
+                placeholder="—"
+                onChange={(e) => updateSettle("profit", e.target.value)}
+              />
+            </div>
           </div>
+          {(() => {
+            const tv = summary.settle.total_value;
+            const dp = summary.settle.deal_price;
+            const pf = summary.settle.profit;
+            if (tv == null || dp == null || pf == null) return null;
+            const calc = dp - tv;
+            const ok = Math.abs(pf - calc) <= 0.5;
+            return ok ? (
+              <div className="mt-2 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-1.5 text-xs text-emerald-400">
+                ✓ 收益核验通过：{fmtMoney(pf)} = 成交价 − 总价值
+              </div>
+            ) : (
+              <div className="mt-2 rounded-lg border border-rose-500/40 bg-rose-500/10 px-3 py-1.5 text-xs text-rose-400">
+                ✗ 收益核验不通过：收益应为 成交价 − 总价值 = {fmtMoney(calc)}（当前 {fmtMoney(pf)}）。保存后该局将标红，且<strong>不进入模型训练</strong>。
+              </div>
+            );
+          })()}
           <div className="mt-2 space-y-1">
             {summary.items.map((it, i) => (
               <div key={i} className="flex items-center gap-2 rounded-lg border border-ink-700/60 bg-ink-900/40 p-1.5 text-xs">

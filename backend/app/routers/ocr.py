@@ -80,6 +80,8 @@ def ocr_save_summary(body: schemas.SaveSummaryInput) -> dict[str, Any]:
         full_value = settlement.get("total_value")
         deal_price = settlement.get("deal_price")
         profit = settlement.get("profit")
+        # 收益核验：profit 是否 = 成交价 - 总价值（不符标红且不进模型训练）
+        profit_ok = ocr_mod._check_profit_ok(full_value, deal_price, profit)
         saved_items = [{
             "name": it.get("name"),
             "grid_cells": it.get("grid_cells"),
@@ -88,11 +90,11 @@ def ocr_save_summary(body: schemas.SaveSummaryInput) -> dict[str, Any]:
         conn.execute(
             """INSERT INTO game_records
                (game_no, grid_combo, red_count, red_grids, red_avg, red_value,
-                full_value, deal_price, profit, items_json, won)
-               VALUES (?,?,?,?,?,?,?,?,?,?,?)""",
+                full_value, deal_price, profit, items_json, won, profit_ok)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?,?)""",
             (game_no, combo, red_count if red_count else None, red_grids or None,
              red_avg, red_value or None, full_value, deal_price, profit,
-             json_dumps(saved_items), 1 if body.won else 0),
+             json_dumps(saved_items), 1 if body.won else 0, profit_ok),
         )
     if red_count > 0:
         bg.start("train", estimator.retrain_all, force=True)
@@ -105,6 +107,7 @@ def ocr_save_summary(body: schemas.SaveSummaryInput) -> dict[str, Any]:
         "red_avg": red_avg,
         "red_value": red_value,
         "settlement": settlement,
+        "profit_ok": profit_ok,
         "saved_at": now,
     }
 

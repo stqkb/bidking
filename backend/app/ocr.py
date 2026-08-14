@@ -95,6 +95,18 @@ def _is_signed_price(t: str) -> bool:
     return bool(re.fullmatch(r"[+-]?[\d,]+(?:\.\d+)?", t.strip()))
 
 
+def _check_profit_ok(full_value, deal_price, profit) -> int:
+    """收益核验：profit 是否 = 成交价 - 总价值。数据齐全且吻合 → 1，否则 0。"""
+    if full_value is None or deal_price is None or profit is None:
+        return 1  # 缺数据不判错（历史兼容），仅当三值齐全且不吻合时标红
+    try:
+        if abs(float(profit) - (float(deal_price) - float(full_value))) > 0.5:
+            return 0
+    except (TypeError, ValueError):
+        return 0
+    return 1
+
+
 def _parse_price(t: str) -> float:
     return float(t.replace(",", "").replace("+", ""))
 
@@ -732,11 +744,12 @@ def save_multi_record(conn, image_paths: list[str]) -> dict[str, Any]:
     conn.execute(
         """INSERT INTO game_records
            (game_no, grid_combo, red_count, red_grids, red_avg, red_value,
-            full_value, deal_price, profit, items_json)
-           VALUES (?,?,?,?,?,?,?,?,?,?)""",
+            full_value, deal_price, profit, items_json, profit_ok)
+           VALUES (?,?,?,?,?,?,?,?,?,?,?)""",
         (game_no, combo, red_count if red_count else None, red_grids or None,
          red_avg, red_value or None, full_value, deal_price, profit,
-         json_dumps(saved_items)),
+         json_dumps(saved_items),
+         _check_profit_ok(full_value, deal_price, profit)),
     )
     cache.invalidate_games()   # 新增对局记录
     return {
@@ -745,6 +758,7 @@ def save_multi_record(conn, image_paths: list[str]) -> dict[str, Any]:
         "saved": True,
         "saved_at": now,
         "saved_items": saved_items,
+        "profit_ok": _check_profit_ok(full_value, deal_price, profit),
     }
 
 

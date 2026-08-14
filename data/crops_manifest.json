@@ -21107,5 +21107,709 @@
   "source": "learn",
   "variant": true,
   "augmented": true
+ },
+ {
+  "name": "非洲之粹碎钻",
+  "grid_cells": 1,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\非洲之粹碎钻\\811079733.png",
+  "source": "learn",
+  "variant": false,
+  "augmented": true
+ },
+ {
+  "name": "非洲之粹碎钻",
+  "grid_cells": 1,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\非洲之粹碎钻\\811079733_v0.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true
+ },
+ {
+  "name": "非洲之粹碎钻",
+  "grid_cells": 1,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\非洲之粹碎钻\\811079733_v1.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true
+ },
+ {
+  "name": "非洲之粹碎钻",
+  "grid_cells": 1,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\非洲之粹碎钻\\811079733_v2.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true
+ },
+ {
+  "name": "非洲之粹碎钻",
+  "grid_cells": 1,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\非洲之粹碎钻\\811079733_v3.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true
+ },
+ {
+  "name": "非洲之粹碎钻",
+  "grid_cells": 1,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\非洲之粹碎钻\\811079733_v4.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true
+ },
+ {
+  "name": "非洲之粹碎钻",
+  "grid_cells": 1,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\非洲之粹碎钻\\811079733_v5.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true
+ },
+ {
+  "name": "非洲之粹碎钻",
+  "grid_cells": 1,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\非洲之粹碎钻\\811079733_v6.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true
+ },
+ {
+  "name": "非洲之粹碎钻",
+  "grid_cells": 1,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\非洲之粹碎钻\\811079733_v7.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true
+ },
+ {
+  "name": "非洲之粹碎钻",
+  "grid_cells": 1,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\非洲之粹碎钻\\811079733_v8.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true
+ },
+ {
+  "name": "非洲之粹碎钻",
+  "grid_cells": 1,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\非洲之粹碎钻\\811079733_v9.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true
+ },
+ {
+  "name": "普通涂装喷漆",
+  "grid_cells": 1,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\普通涂装喷漆\\292611676.png",
+  "source": "learn",
+  "variant": false,
+  "augmented": true
+ },
+ {
+  "name": "普通涂装喷漆",
+  "grid_cells": 1,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\普通涂装喷漆\\292611676_v0.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true
+ },
+ {
+  "name": "普通涂装喷漆",
+  "grid_cells": 1,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\普通涂装喷漆\\292611676_v1.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true
+ },
+ {
+  "name": "普通涂装喷漆",
+  "grid_cells": 1,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\普通涂装喷漆\\292611676_v2.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true
+ },
+ {
+  "name": "普通涂装喷漆",
+  "grid_cells": 1,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\普通涂装喷漆\\292611676_v3.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true
+ },
+ {
+  "name": "普通涂装喷漆",
+  "grid_cells": 1,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\普通涂装喷漆\\292611676_v4.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true
+ },
+ {
+  "name": "普通涂装喷漆",
+  "grid_cells": 1,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\普通涂装喷漆\\292611676_v5.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true
+ },
+ {
+  "name": "普通涂装喷漆",
+  "grid_cells": 1,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\普通涂装喷漆\\292611676_v6.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true
+ },
+ {
+  "name": "普通涂装喷漆",
+  "grid_cells": 1,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\普通涂装喷漆\\292611676_v7.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true
+ },
+ {
+  "name": "普通涂装喷漆",
+  "grid_cells": 1,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\普通涂装喷漆\\292611676_v8.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true
+ },
+ {
+  "name": "普通涂装喷漆",
+  "grid_cells": 1,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\普通涂装喷漆\\292611676_v9.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true
+ },
+ {
+  "name": "普通涂装喷漆",
+  "grid_cells": 1,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\普通涂装喷漆\\160772800.png",
+  "source": "learn",
+  "variant": false,
+  "augmented": true
+ },
+ {
+  "name": "普通涂装喷漆",
+  "grid_cells": 1,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\普通涂装喷漆\\160772800_v0.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true
+ },
+ {
+  "name": "普通涂装喷漆",
+  "grid_cells": 1,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\普通涂装喷漆\\160772800_v1.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true
+ },
+ {
+  "name": "普通涂装喷漆",
+  "grid_cells": 1,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\普通涂装喷漆\\160772800_v2.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true
+ },
+ {
+  "name": "普通涂装喷漆",
+  "grid_cells": 1,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\普通涂装喷漆\\160772800_v3.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true
+ },
+ {
+  "name": "普通涂装喷漆",
+  "grid_cells": 1,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\普通涂装喷漆\\160772800_v4.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true
+ },
+ {
+  "name": "普通涂装喷漆",
+  "grid_cells": 1,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\普通涂装喷漆\\160772800_v5.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true
+ },
+ {
+  "name": "普通涂装喷漆",
+  "grid_cells": 1,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\普通涂装喷漆\\160772800_v6.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true
+ },
+ {
+  "name": "普通涂装喷漆",
+  "grid_cells": 1,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\普通涂装喷漆\\160772800_v7.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true
+ },
+ {
+  "name": "普通涂装喷漆",
+  "grid_cells": 1,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\普通涂装喷漆\\160772800_v8.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true
+ },
+ {
+  "name": "普通涂装喷漆",
+  "grid_cells": 1,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\普通涂装喷漆\\160772800_v9.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true
+ },
+ {
+  "name": "非洲之粹碎钻",
+  "grid_cells": 1,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\非洲之粹碎钻\\127669287.png",
+  "source": "learn",
+  "variant": false,
+  "augmented": true
+ },
+ {
+  "name": "非洲之粹碎钻",
+  "grid_cells": 1,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\非洲之粹碎钻\\127669287_v0.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true
+ },
+ {
+  "name": "非洲之粹碎钻",
+  "grid_cells": 1,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\非洲之粹碎钻\\127669287_v1.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true
+ },
+ {
+  "name": "非洲之粹碎钻",
+  "grid_cells": 1,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\非洲之粹碎钻\\127669287_v2.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true
+ },
+ {
+  "name": "非洲之粹碎钻",
+  "grid_cells": 1,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\非洲之粹碎钻\\127669287_v3.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true
+ },
+ {
+  "name": "非洲之粹碎钻",
+  "grid_cells": 1,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\非洲之粹碎钻\\127669287_v4.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true
+ },
+ {
+  "name": "非洲之粹碎钻",
+  "grid_cells": 1,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\非洲之粹碎钻\\127669287_v5.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true
+ },
+ {
+  "name": "非洲之粹碎钻",
+  "grid_cells": 1,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\非洲之粹碎钻\\127669287_v6.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true
+ },
+ {
+  "name": "非洲之粹碎钻",
+  "grid_cells": 1,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\非洲之粹碎钻\\127669287_v7.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true
+ },
+ {
+  "name": "非洲之粹碎钻",
+  "grid_cells": 1,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\非洲之粹碎钻\\127669287_v8.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true
+ },
+ {
+  "name": "非洲之粹碎钻",
+  "grid_cells": 1,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\非洲之粹碎钻\\127669287_v9.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true
+ },
+ {
+  "name": "《奔马图》",
+  "grid_cells": 4,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\奔马图\\382122826.png",
+  "source": "learn",
+  "variant": false,
+  "augmented": true
+ },
+ {
+  "name": "《奔马图》",
+  "grid_cells": 4,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\奔马图\\382122826_v0.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true
+ },
+ {
+  "name": "《奔马图》",
+  "grid_cells": 4,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\奔马图\\382122826_v1.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true
+ },
+ {
+  "name": "《奔马图》",
+  "grid_cells": 4,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\奔马图\\382122826_v2.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true
+ },
+ {
+  "name": "《奔马图》",
+  "grid_cells": 4,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\奔马图\\382122826_v3.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true
+ },
+ {
+  "name": "《奔马图》",
+  "grid_cells": 4,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\奔马图\\382122826_v4.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true
+ },
+ {
+  "name": "《奔马图》",
+  "grid_cells": 4,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\奔马图\\382122826_v5.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true
+ },
+ {
+  "name": "《奔马图》",
+  "grid_cells": 4,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\奔马图\\382122826_v6.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true
+ },
+ {
+  "name": "《奔马图》",
+  "grid_cells": 4,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\奔马图\\382122826_v7.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true
+ },
+ {
+  "name": "《奔马图》",
+  "grid_cells": 4,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\奔马图\\382122826_v8.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true
+ },
+ {
+  "name": "《奔马图》",
+  "grid_cells": 4,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\奔马图\\382122826_v9.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true
+ },
+ {
+  "name": "三级战术防弹背心",
+  "grid_cells": 4,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\三级战术防弹背心\\750857435.png",
+  "source": "learn",
+  "variant": false,
+  "augmented": true
+ },
+ {
+  "name": "三级战术防弹背心",
+  "grid_cells": 4,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\三级战术防弹背心\\750857435_v0.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true
+ },
+ {
+  "name": "三级战术防弹背心",
+  "grid_cells": 4,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\三级战术防弹背心\\750857435_v1.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true
+ },
+ {
+  "name": "三级战术防弹背心",
+  "grid_cells": 4,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\三级战术防弹背心\\750857435_v2.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true
+ },
+ {
+  "name": "三级战术防弹背心",
+  "grid_cells": 4,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\三级战术防弹背心\\750857435_v3.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true
+ },
+ {
+  "name": "三级战术防弹背心",
+  "grid_cells": 4,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\三级战术防弹背心\\750857435_v4.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true
+ },
+ {
+  "name": "三级战术防弹背心",
+  "grid_cells": 4,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\三级战术防弹背心\\750857435_v5.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true
+ },
+ {
+  "name": "三级战术防弹背心",
+  "grid_cells": 4,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\三级战术防弹背心\\750857435_v6.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true
+ },
+ {
+  "name": "三级战术防弹背心",
+  "grid_cells": 4,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\三级战术防弹背心\\750857435_v7.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true
+ },
+ {
+  "name": "三级战术防弹背心",
+  "grid_cells": 4,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\三级战术防弹背心\\750857435_v8.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true
+ },
+ {
+  "name": "三级战术防弹背心",
+  "grid_cells": 4,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\三级战术防弹背心\\750857435_v9.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true
+ },
+ {
+  "name": "喜马拉雅铂金鳄鱼皮包",
+  "grid_cells": 4,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\喜马拉雅铂金鳄鱼皮包\\625030995.png",
+  "source": "learn",
+  "variant": false,
+  "augmented": true
+ },
+ {
+  "name": "喜马拉雅铂金鳄鱼皮包",
+  "grid_cells": 4,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\喜马拉雅铂金鳄鱼皮包\\625030995_v0.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true
+ },
+ {
+  "name": "喜马拉雅铂金鳄鱼皮包",
+  "grid_cells": 4,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\喜马拉雅铂金鳄鱼皮包\\625030995_v1.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true
+ },
+ {
+  "name": "喜马拉雅铂金鳄鱼皮包",
+  "grid_cells": 4,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\喜马拉雅铂金鳄鱼皮包\\625030995_v2.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true
+ },
+ {
+  "name": "喜马拉雅铂金鳄鱼皮包",
+  "grid_cells": 4,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\喜马拉雅铂金鳄鱼皮包\\625030995_v3.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true
+ },
+ {
+  "name": "喜马拉雅铂金鳄鱼皮包",
+  "grid_cells": 4,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\喜马拉雅铂金鳄鱼皮包\\625030995_v4.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true
+ },
+ {
+  "name": "喜马拉雅铂金鳄鱼皮包",
+  "grid_cells": 4,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\喜马拉雅铂金鳄鱼皮包\\625030995_v5.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true
+ },
+ {
+  "name": "喜马拉雅铂金鳄鱼皮包",
+  "grid_cells": 4,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\喜马拉雅铂金鳄鱼皮包\\625030995_v6.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true
+ },
+ {
+  "name": "喜马拉雅铂金鳄鱼皮包",
+  "grid_cells": 4,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\喜马拉雅铂金鳄鱼皮包\\625030995_v7.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true
+ },
+ {
+  "name": "喜马拉雅铂金鳄鱼皮包",
+  "grid_cells": 4,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\喜马拉雅铂金鳄鱼皮包\\625030995_v8.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true
+ },
+ {
+  "name": "喜马拉雅铂金鳄鱼皮包",
+  "grid_cells": 4,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\喜马拉雅铂金鳄鱼皮包\\625030995_v9.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true
+ },
+ {
+  "name": "大溪地黑珍珠",
+  "grid_cells": 1,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\大溪地黑珍珠\\492049404.png",
+  "source": "learn",
+  "variant": false,
+  "augmented": true
+ },
+ {
+  "name": "大溪地黑珍珠",
+  "grid_cells": 1,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\大溪地黑珍珠\\492049404_v0.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true
+ },
+ {
+  "name": "大溪地黑珍珠",
+  "grid_cells": 1,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\大溪地黑珍珠\\492049404_v1.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true
+ },
+ {
+  "name": "大溪地黑珍珠",
+  "grid_cells": 1,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\大溪地黑珍珠\\492049404_v2.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true
+ },
+ {
+  "name": "大溪地黑珍珠",
+  "grid_cells": 1,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\大溪地黑珍珠\\492049404_v3.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true
+ },
+ {
+  "name": "大溪地黑珍珠",
+  "grid_cells": 1,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\大溪地黑珍珠\\492049404_v4.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true
+ },
+ {
+  "name": "大溪地黑珍珠",
+  "grid_cells": 1,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\大溪地黑珍珠\\492049404_v5.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true
+ },
+ {
+  "name": "大溪地黑珍珠",
+  "grid_cells": 1,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\大溪地黑珍珠\\492049404_v6.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true
+ },
+ {
+  "name": "大溪地黑珍珠",
+  "grid_cells": 1,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\大溪地黑珍珠\\492049404_v7.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true
+ },
+ {
+  "name": "大溪地黑珍珠",
+  "grid_cells": 1,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\大溪地黑珍珠\\492049404_v8.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true
+ },
+ {
+  "name": "大溪地黑珍珠",
+  "grid_cells": 1,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\大溪地黑珍珠\\492049404_v9.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true
  }
 ]
