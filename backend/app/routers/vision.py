@@ -14,7 +14,7 @@ from fastapi import APIRouter, File, HTTPException, UploadFile
 from fastapi.responses import FileResponse, Response
 
 from .. import ocr as ocr_mod, vision, schemas
-from ..config import DATA_DIR
+from ..config import DATA_DIR, CROPS_DIR
 from ..db import db
 from ..services import matching
 
@@ -25,6 +25,40 @@ def _catalog_value(name: str) -> float | None:
     """按名称查图鉴当前值（原名 main._catalog_value）。"""
     with db(readonly=True) as conn:
         return matching.catalog_value(conn, name)
+
+
+def _resolve_image_path(raw: str) -> Path | None:
+    """把前端传来的图片路径解析为实际可读取的文件。
+
+    前端传的是 manifest 里记录的（绝对）路径。项目迁移、跨文件系统
+    （如前端跑在 WSL、后端跑在 Windows 宿主）或盘符变化后，绝对路径会
+    失效导致 404，弹窗里图片全黑。此处做容错回退：
+
+      1) 原路径本身绝对且存在 → 直接用（最常见，零开销）；
+      2) 还原 ``<藏品>/<文件名>`` 结构映射到 CROPS_DIR 下；
+      3) 在 CROPS_DIR 内按文件名全局搜索。
+
+    返回 None 表示确实找不到。
+    """
+    if not raw:
+        return None
+    p = Path(raw.replace("\\", "/"))
+    if p.is_absolute() and p.exists():
+        return p
+    name = p.name
+    if not name:
+        return None
+    # 2) 还原 <item>/<file> 结构
+    parent = p.parent.name
+    if parent:
+        cand = CROPS_DIR / parent / name
+        if cand.exists():
+            return cand
+    # 3) 按文件名全局搜索
+    for hit in CROPS_DIR.rglob(name):
+        if hit.is_file():
+            return hit
+    return None
 
 
 @router.get("/api/vision/gallery")
@@ -367,9 +401,9 @@ def vision_trim(body: schemas.TrimInput) -> dict[str, Any]:
 
 @router.get("/api/vision/uploaded")
 def vision_uploaded(path: str) -> FileResponse:
-    # 容错：Windows 下路径可能混用反斜杠，统一转正斜杠再解析
-    p = Path(path.replace("\\", "/"))
-    if not p.exists():
+    # 容错：绝对路径可能失效（项目迁移/跨文件系统），按 CROPS_DIR 回退定位
+    p = _resolve_image_path(path)
+    if p is None:
         raise HTTPException(status_code=404, detail="图片不存在")
     return FileResponse(str(p))
 
