@@ -17,7 +17,9 @@ from PIL import Image
 from rapidocr_onnxruntime import RapidOCR
 
 from .config import AUCTION_DIR, OCR_FAILED_DIR, OCR_PROCESSED_DIR, SCAN_DIR
+from .core.norm import norm_name as _norm_name
 from .db import db, json_dumps
+from .services import matching
 
 from .config import DATA_DIR
 
@@ -79,10 +81,6 @@ def parse_shape(name: str) -> tuple[int, int] | None:
     if not m:
         return None
     return int(m.group(1)), int(m.group(2))
-
-
-def _norm_name(s: str) -> str:
-    return re.sub(r"[·…\s《》（）()\-—–]", "", s or "")
 
 
 def _is_price(t: str) -> bool:
@@ -178,41 +176,8 @@ def parse_settlement(boxes: list[dict[str, Any]]) -> dict[str, Any]:
 
 
 def _match_by_name(conn, name: str) -> list[dict[str, Any]]:
-    rows = conn.execute(
-        "SELECT name, grid_cells, value, current_value FROM catalog_items"
-    ).fetchall()
-    nn = _norm_name(name)
-    alias_target = _build_alias_map(conn).get(nn)
-    cands: list[dict[str, Any]] = []
-    for r in rows:
-        rn = _norm_name(r["name"])
-        exact = len(nn) > 0 and nn == rn
-        alias_hit = alias_target is not None and rn == _norm_name(alias_target)
-        ocr_prefix = len(nn) >= 2 and nn in rn and nn != rn
-        cat_prefix = len(rn) >= 2 and rn in nn and nn != rn
-        prefix = len(nn) >= 3 and len(rn) >= 3 and nn[:3] == rn[:3]
-        if exact or alias_hit:
-            score = 100
-        elif ocr_prefix:
-            score = 62 + 8 * len(nn) / max(len(rn), 1)
-        elif cat_prefix:
-            score = 42
-        elif prefix:
-            score = 46
-        else:
-            continue
-        cands.append({
-            "name": r["name"],
-            "grid_cells": r["grid_cells"],
-            "value": r["value"],
-            "current_value": r["current_value"],
-            "score": round(score, 1),
-            "price_ok": True,
-            "by_price": False,
-        })
-    cands = [c for c in cands if c["score"] >= 50]
-    cands.sort(key=lambda c: -c["score"])
-    return cands[:4]
+    """按名称模糊匹配图鉴（统一实现见 services.matching）。"""
+    return matching.match_by_name(conn, name)
 
 
 def _board_items(conn, boxes: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -461,101 +426,13 @@ def _mk_item(boxes: list[dict[str, Any]], name_i: int, price_i: int) -> dict[str
 
 
 def _build_alias_map(conn) -> dict[str, str]:
-    """历史对局里的「游戏显示名/对应文档名 -> 图鉴名」别名映射。"""
-    cat: dict[str, str] = {}
-    for r in conn.execute("SELECT name FROM catalog_items").fetchall():
-        cat.setdefault(_norm_name(r["name"]), r["name"])
-    alias: dict[str, str] = {}
-    for r in conn.execute("SELECT items_json FROM game_records").fetchall():
-        for it in json.loads(r["items_json"] or "[]"):
-            nm = it.get("name")
-            doc = it.get("doc_name")
-            target = None
-            for key in (doc, nm):
-                nk = _norm_name(key)
-                if nk and nk in cat:
-                    target = cat[nk]
-                    break
-            if target:
-                if nm:
-                    alias.setdefault(_norm_name(nm), target)
-                if doc:
-                    alias.setdefault(_norm_name(doc), target)
-    return alias
+    """历史对局里的「游戏显示名/对应文档名 -> 图鉴名」别名映射（统一实现见 services.matching）。"""
+    return matching._build_alias_map(conn)
 
 
 def _match_catalog(conn, name: str, price: float, cells: int) -> list[dict[str, Any]]:
-    rows = conn.execute(
-        "SELECT name, grid_cells, value, current_value FROM catalog_items"
-    ).fetchall()
-    nn = _norm_name(name)
-    alias_target = _build_alias_map(conn).get(nn)
-    candidates: list[dict[str, Any]] = []
-    for r in rows:
-        rn = _norm_name(r["name"])
-        exact = len(nn) > 0 and nn == rn
-        alias_hit = alias_target is not None and rn == _norm_name(alias_target)
-        ocr_prefix = len(nn) >= 2 and nn in rn and nn != rn  # OCR 截断（名短于图鉴）
-        cat_prefix = len(rn) >= 2 and rn in nn and nn != rn  # OCR 名比图鉴多字
-        prefix = len(nn) >= 3 and len(rn) >= 3 and nn[:3] == rn[:3]
-        if exact or alias_hit:
-            score = 100
-        elif ocr_prefix:
-            score = 62 + 8 * len(nn) / max(len(rn), 1)
-        elif cat_prefix:
-            score = 42  # 如「非洲之心」之于「非洲之心碎料」，弱化
-        elif prefix:
-            score = 46
-        else:
-            continue
-        if cells and r["grid_cells"] != cells:
-            score -= 25
-        rel = min(
-            abs(r["value"] - price) / max(price, 1),
-            abs((r["current_value"] or r["value"]) - price) / max(price, 1),
-        )
-        price_ok = rel <= 0.02
-        if price_ok:
-            score += 15
-        elif rel <= 0.05:
-            score += 5
-        candidates.append({
-            "name": r["name"],
-            "grid_cells": r["grid_cells"],
-            "value": r["value"],
-            "current_value": r["current_value"],
-            "score": round(score, 1),
-            "price_rel": round(rel, 3),
-            "price_ok": bool(price_ok),
-            "by_price": False,
-        })
-    candidates = [c for c in candidates if c["score"] >= 50]
-    if not candidates:
-        # 兜底：名称对不上时，按 格数 + 价格精确命中 推荐候选
-        for r in rows:
-            if cells and r["grid_cells"] != cells:
-                continue
-            for v in (r["value"], r["current_value"] or r["value"]):
-                if abs(v - price) / max(price, 1) <= 0.02:
-                    candidates.append({
-                        "name": r["name"],
-                        "grid_cells": r["grid_cells"],
-                        "value": r["value"],
-                        "current_value": r["current_value"],
-                        "score": 42.0,
-                        "price_rel": round(abs(v - price) / max(price, 1), 3),
-                        "price_ok": True,
-                        "by_price": True,
-                    })
-                    break
-        if not candidates:
-            return []
-    candidates.sort(key=lambda c: (-c["score"], c["price_rel"]))
-    best = candidates[0]["score"]
-    threshold = max(50, best - 15)
-    if not any(not c["by_price"] for c in candidates):
-        threshold = 42  # 纯按价格兜底命中的候选直接返回
-    return [c for c in candidates if c["score"] >= threshold][:6]
+    """名称 + 格数 + 价格三重匹配图鉴（统一实现见 services.matching）。"""
+    return matching.match_catalog(conn, name, price, cells)
 
 
 def process_image(conn, path: Path, shape: tuple[int, int]) -> dict[str, Any]:

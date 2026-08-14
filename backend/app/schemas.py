@@ -52,3 +52,80 @@ class RecordUpdate(BaseModel):
 
 class CnnPredictInput(BaseModel):
     board: list[list[int]]
+
+
+# ---- 以下模型原内联在 main.py 路由文件中，重构时统一收敛到 schemas.py ----
+
+
+class IdentifyInput(BaseModel):
+    grid_cells: int
+    price: Optional[float] = None
+
+
+class ImportBody(BaseModel):
+    path: Optional[str] = None
+
+
+class OcrConfirmInput(BaseModel):
+    items: list[dict[str, Any]] = []
+    settlement: dict[str, Any] = {}
+
+
+class OcrProcessCaptureInput(BaseModel):
+    path: str
+
+
+class OcrRecognizeMultiInput(BaseModel):
+    paths: list[str]
+
+
+class SummaryItemInput(BaseModel):
+    name: str
+    grid_cells: int = 0
+    value: float = 0
+
+
+class SaveSummaryInput(BaseModel):
+    items: list[SummaryItemInput] = []
+    settlement: dict[str, Any] = {}
+
+
+class CatalogDeleteInput(BaseModel):
+    ids: list[int] = []
+
+
+class LearnInput(BaseModel):
+    image_path: str
+    box: list[int]
+    name: str
+    grid_cells: int = 0
+
+
+class AnnotateInput(BaseModel):
+    image_path: str
+    box: list[int]
+    kind: str  # "red" | "total" | "deal" | "profit"
+    name: str = ""
+    grid_cells: int = 0
+    value: Optional[float] = None
+
+
+class OcrBoxInput(BaseModel):
+    image_path: str
+    box: list[int]
+
+
+class ImagePathInput(BaseModel):
+    image_path: str
+
+
+class LearnDeleteInput(BaseModel):
+    names: list[str] = []
+
+
+class ImageDeleteInput(BaseModel):
+    paths: list[str] = []
+
+
+class TrimInput(BaseModel):
+    max_per_name: int = 5

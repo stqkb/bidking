@@ -25,6 +25,7 @@ from PIL import Image, ImageEnhance
 from torchvision.models import resnet50, ResNet50_Weights
 
 from .config import CROPS_DIR, DATA_DIR, OCR_PROCESSED_DIR, SCAN_DIR
+from .core.norm import norm_name as _norm
 from .db import db
 
 MANIFEST = DATA_DIR / "crops_manifest.json"
@@ -39,10 +40,6 @@ _device = "cuda" if torch.cuda.is_available() else "cpu"
 
 
 # ---------------------------------------------------------------- 基础工具
-
-
-def _norm(s: str) -> str:
-    return re.sub(r"[·…\s《》（）()\-—–]", "", s or "")
 
 
 def _load_manifest() -> list[dict[str, Any]]:

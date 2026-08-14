@@ -9,7 +9,9 @@ from typing import Any
 import openpyxl
 
 from .config import EXTRA_MD_FILES, MD_AGGREGATE, MD_SOURCES, XLSX_SOURCE
+from .core.norm import norm_name as _norm_name
 from .db import db, json_dumps
+from .services import matching
 
 _CN_DIGITS = {"零": 0, "一": 1, "二": 2, "三": 3, "四": 4,
               "五": 5, "六": 6, "七": 7, "八": 8, "九": 9}
@@ -249,10 +251,6 @@ def import_games() -> int:
     return len(games)
 
 
-def _norm_name(s: str) -> str:
-    return re.sub(r"[《》（）()·\s\-—–]", "", s or "")
-
-
 def import_all_if_empty() -> dict[str, int]:
     """启动时自动导入：库为空才导入。返回 {catalog, games} 导入数量。"""
     with db() as conn:
@@ -338,46 +336,5 @@ def identify_item(
     price: float | None = None,
     limit: int = 30,
 ) -> list[dict]:
-    """按格数识别红色藏品：
-    - 只填格数：返回该格数全部图鉴藏品，按价值从低到高展示；
-    - 填了价格：返回该格数全部图鉴藏品，按 |价格差| 从小到大优先展示（无 ±2% 过滤）。
-    """
-    results: list[dict] = []
-    seen: set[tuple] = set()
-
-    def add(name: str, grid: int, val: float | None, cur: float | None,
-            source: str, match: str) -> None:
-        if val is None:
-            return
-        key = (name, grid, round(val, 0))
-        if key in seen:
-            return
-        seen.add(key)
-        results.append({
-            "name": name, "grid_cells": grid,
-            "value": val, "current_value": cur,
-            "source": source, "match": match,
-            "diff": abs(val - price) if price is not None else 0.0,
-        })
-
-    for r in conn.execute(
-        "SELECT name, grid_cells, value, current_value FROM catalog_items WHERE grid_cells=?"
-    , (int(grid_cells),)).fetchall():
-        v = r["value"]
-        if v is None:
-            continue
-        if price is None:
-            add(r["name"], r["grid_cells"], v, None, "图鉴", "")
-        else:
-            diff = abs(v - float(price))
-            pct = diff / max(float(price), 1.0) * 100
-            add(
-                r["name"], r["grid_cells"], v, None,
-                "图鉴", f"差 {diff:,.0f}（{pct:.1f}%）",
-            )
-
-    if price is not None:
-        results.sort(key=lambda d: d["diff"])
-    else:
-        results.sort(key=lambda d: d["value"])
-    return results[:limit]
+    """按格数识别红色藏品（统一实现见 services.matching.identify_by_grid）。"""
+    return matching.identify_by_grid(conn, grid_cells, price, limit)
