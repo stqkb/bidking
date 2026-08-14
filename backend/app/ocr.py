@@ -209,13 +209,28 @@ def _board_items(conn, boxes: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 "x0": b["x0"], "y0": b["y0"], "x1": b["x1"], "y1": b["y1"],
             })
     items: list[dict[str, Any]] = []
-    seen: set[str] = set()
     for b in sorted(merged, key=lambda x: (x["cy"], x["cx"])):
         t = b["text"]
         nn = _norm_name(t)
-        if not nn or nn in seen:
+        if not nn:
             continue
-        seen.add(nn)
+        cx = (b["x0"] + b["x1"]) / 2
+        # 去重策略：同一名称的重复框（OCR 碎片/重复识别）仅当其与已保留框
+        # 位置重叠、或水平距离很近（同一格内）时才剔除；同名但位置不同的藏品
+        # （如结算图里同一件藏品拍得两件）必须分别保留，不能按名称合并。
+        dup = False
+        for it in items:
+            ib = it["name_box"]
+            if _norm_name(it["name"]) != nn:
+                continue
+            icx = (ib["x0"] + ib["x1"]) / 2
+            ix = min(b["x1"], ib["x1"]) - max(b["x0"], ib["x0"])
+            iy = min(b["y1"], ib["y1"]) - max(b["y0"], ib["y0"])
+            if (ix > 8 and iy > 8) or abs(cx - icx) < 90:
+                dup = True
+                break
+        if dup:
+            continue
         matches = _match_by_name(conn, t)
         items.append({
             "name": t,
@@ -591,7 +606,7 @@ def recognize_multi(conn, image_paths: list[str]) -> dict[str, Any]:
     per_image: list[dict[str, Any]] = []
     merged_items: list[dict[str, Any]] = []
     settlement: dict[str, Any] = {}
-    seen_names: set[str] = set()
+    seen_names: dict[str, str] = {}   # 名称 -> 首次出现的来源图
     errors: list[str] = []
     for p, r in zip(image_paths, results):
         if not r.get("ok"):
@@ -613,11 +628,16 @@ def recognize_multi(conn, image_paths: list[str]) -> dict[str, Any]:
             if not it.get("is_red"):
                 continue
             key = _norm_name(it.get("name") or "")
-            if not key or key in seen_names:
+            if not key:
                 continue
-            seen_names.add(key)
+            src = Path(p).name
+            # 仅跨图同名合并（对局图+结算图多为同一件藏品）；
+            # 同一张图内的同名藏品（拍得两件相同藏品）分别保留。
+            if key in seen_names and seen_names[key] != src:
+                continue
+            seen_names.setdefault(key, src)
             it = dict(it)
-            it["source_image"] = Path(p).name
+            it["source_image"] = src
             merged_items.append(it)
     red_count = len(merged_items)
     total_cells = sum(int(it.get("grid_cells") or 0) for it in merged_items)
