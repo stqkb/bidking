@@ -119,15 +119,15 @@ export default function AnnotatePage() {
       setNameOverrides({});
       setGridOverrides({});
       // 自动把识别到的红品并入本局汇总（无需勾选）
+      // 同图内同名红品（如两件相同藏品）分别保留；仅跨图（已汇总集合）同名合并
       setSummary((prev) => {
         const merged = [...prev.items];
-        const names = new Set(merged.map((it) => it.name));
+        const prevNames = new Set(prev.items.map((it) => it.name));
         for (const c of j.cells ?? []) {
           const top = c.matches?.[0];
           if (!top || !top.name) continue;
-          if (names.has(top.name)) continue;
+          if (prevNames.has(top.name)) continue;
           merged.push({ name: top.name, grid_cells: top.grid_cells ?? 0, value: top.value ?? 0 });
-          names.add(top.name);
         }
         return { ...prev, items: merged };
       });
@@ -388,15 +388,15 @@ export default function AnnotatePage() {
         /* ignore */
       }
     }
-    // 跨图合并：按名称去重（同一红品只保留一份）
+    // 跨图合并：与已汇总集合（prev.items）同名则跳过；
+    // 本次勾选（同一张图）内的同名红品分别保留（如两件相同藏品）
     const curSettle = settle;
     setSummary((prev) => {
       const merged = [...prev.items];
-      const names = new Set(merged.map((it) => it.name));
+      const prevNames = new Set(prev.items.map((it) => it.name));
       for (const p of picked) {
-        if (!names.has(p.name)) {
+        if (!prevNames.has(p.name)) {
           merged.push(p);
-          names.add(p.name);
         }
       }
       const mergedSettle = {
