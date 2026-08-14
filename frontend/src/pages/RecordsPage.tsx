@@ -112,68 +112,88 @@ export default function RecordsPage() {
     };
   })();
 
-  const profitChartOption = (() => {
-    // 收益规律三条线：①历史对局总价值 ②历史对局收益 ③本人竞拍成功的收益
-    // 总价值量级远大于收益，用双 y 轴避免收益线被压平
+  // 收益走势：三个独立小图（总价值 / 全部收益 / 本人竞拍成功收益），避免多线同轴互相干扰
+  const totalChartOption = (() => {
     const ordered = [...games].sort((a, b) => a.game_no - b.game_no);
     const vv = ordered.filter((g) => g.full_value !== null);
-    const pp = ordered.filter((g) => g.profit !== null);
-    const wp = ordered.filter((g) => g.won === 1 && g.profit !== null);
-    if (vv.length + pp.length === 0) return null;
+    if (vv.length === 0) return null;
     return {
       tooltip: {
         trigger: "item",
-        formatter: (p: any) => {
-          const v = p.data[1];
-          const s = p.seriesName.includes("收益") ? (v >= 0 ? "+" : "") + fmtMoney(v) : fmtMoney(v);
-          return `${p.marker}${p.seriesName} · 局 ${p.data[0]}：${s}`;
-        },
+        formatter: (p: any) => `局 ${p.data[0]}：总价值 ${fmtMoney(p.data[1])}`,
       },
-      legend: { textStyle: { color: "#94a3b8" }, top: 0 },
-      grid: { left: 72, right: 72, top: 32, bottom: 40 },
-      xAxis: {
+      grid: { left: 72, right: 20, top: 20, bottom: 36 },
+      xAxis: { type: "value", name: "局号", axisLabel: { color: "#94a3b8" }, splitLine: { lineStyle: { color: "#1e293b" } } },
+      yAxis: {
         type: "value",
-        name: "局号",
-        axisLabel: { color: "#94a3b8" },
+        name: "总价值",
+        axisLabel: { color: "#94a3b8", formatter: (v: number) => fmtWan(v) },
         splitLine: { lineStyle: { color: "#1e293b" } },
       },
-      yAxis: [
-        {
-          type: "value",
-          name: "总价值",
-          axisLabel: { color: "#94a3b8", formatter: (v: number) => fmtWan(v) },
-          splitLine: { lineStyle: { color: "#1e293b" } },
-        },
-        {
-          type: "value",
-          name: "收益",
-          axisLabel: { color: "#94a3b8", formatter: (v: number) => fmtWan(v) },
-          splitLine: { show: false },
-        },
-      ],
       series: [
         {
           name: "历史对局总价值",
           type: "line",
-          yAxisIndex: 0,
           data: vv.map((g) => [g.game_no, g.full_value]),
           symbolSize: 6,
           itemStyle: { color: "#f59e0b" },
           lineStyle: { color: "#f59e0b", width: 2 },
         },
+      ],
+    };
+  })();
+
+  const profitChartOption = (() => {
+    const ordered = [...games].sort((a, b) => a.game_no - b.game_no);
+    const pp = ordered.filter((g) => g.profit !== null);
+    if (pp.length === 0) return null;
+    return {
+      tooltip: {
+        trigger: "item",
+        formatter: (p: any) => `局 ${p.data[0]}：${p.data[1] >= 0 ? "+" : ""}${fmtMoney(p.data[1])}`,
+      },
+      grid: { left: 72, right: 20, top: 20, bottom: 36 },
+      xAxis: { type: "value", name: "局号", axisLabel: { color: "#94a3b8" }, splitLine: { lineStyle: { color: "#1e293b" } } },
+      yAxis: {
+        type: "value",
+        name: "收益",
+        axisLabel: { color: "#94a3b8", formatter: (v: number) => fmtWan(v) },
+        splitLine: { lineStyle: { color: "#1e293b" } },
+      },
+      series: [
         {
           name: "历史对局收益",
           type: "line",
-          yAxisIndex: 1,
           data: pp.map((g) => [g.game_no, g.profit]),
           symbolSize: 7,
           itemStyle: { color: "#38bdf8" },
           lineStyle: { color: "#38bdf8", width: 1.5 },
         },
+      ],
+    };
+  })();
+
+  const wonChartOption = (() => {
+    const ordered = [...games].sort((a, b) => a.game_no - b.game_no);
+    const wp = ordered.filter((g) => g.won === 1 && g.profit !== null);
+    if (wp.length === 0) return null;
+    return {
+      tooltip: {
+        trigger: "item",
+        formatter: (p: any) => `局 ${p.data[0]}：${p.data[1] >= 0 ? "+" : ""}${fmtMoney(p.data[1])}`,
+      },
+      grid: { left: 72, right: 20, top: 20, bottom: 36 },
+      xAxis: { type: "value", name: "局号", axisLabel: { color: "#94a3b8" }, splitLine: { lineStyle: { color: "#1e293b" } } },
+      yAxis: {
+        type: "value",
+        name: "收益",
+        axisLabel: { color: "#94a3b8", formatter: (v: number) => fmtWan(v) },
+        splitLine: { lineStyle: { color: "#1e293b" } },
+      },
+      series: [
         {
           name: "本人竞拍成功收益",
           type: "line",
-          yAxisIndex: 1,
           data: wp.map((g) => [g.game_no, g.profit]),
           symbolSize: 8,
           itemStyle: { color: "#10b981" },
@@ -310,12 +330,29 @@ export default function RecordsPage() {
         </div>
       </Card>
 
-      {profitChartOption && (
+      {(totalChartOption || profitChartOption || wonChartOption) && (
         <Card
           title="收益走势"
-          desc="三线：橙色=历史对局总价值（左轴），蓝色=历史对局收益（右轴），绿色=本人竞拍成功的收益（右轴）；在表格「竞拍」列标记本人是否拍下"
+          desc="三个走势图分开查看：① 历史对局总价值 ② 历史对局收益 ③ 本人竞拍成功的收益（在表格「竞拍」列标记本人是否拍下）"
         >
-          <Chart option={profitChartOption} height={320} />
+          {totalChartOption && (
+            <div className="mb-4">
+              <div className="mb-1 text-xs font-medium text-amber-400">① 历史对局总价值</div>
+              <Chart option={totalChartOption} height={200} />
+            </div>
+          )}
+          {profitChartOption && (
+            <div className="mb-4">
+              <div className="mb-1 text-xs font-medium text-sky-400">② 历史对局收益</div>
+              <Chart option={profitChartOption} height={200} />
+            </div>
+          )}
+          {wonChartOption && (
+            <div>
+              <div className="mb-1 text-xs font-medium text-emerald-400">③ 本人竞拍成功的收益</div>
+              <Chart option={wonChartOption} height={200} />
+            </div>
+          )}
         </Card>
       )}
 
