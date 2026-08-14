@@ -3,7 +3,6 @@ import { api } from "./api";
 import AnnotatePage from "./pages/AnnotatePage";
 import CatalogPage from "./pages/CatalogPage";
 import EstimatePage from "./pages/EstimatePage";
-import LandingPage from "./pages/LandingPage";
 import ModelPage from "./pages/ModelPage";
 import RecordsPage from "./pages/RecordsPage";
 
@@ -18,14 +17,6 @@ const NAV: { key: PageKey; label: string; icon: string }[] = [
 ];
 
 export default function App() {
-  // 路由：/ 为电影式落地页，/app 为应用入口
-  if (!window.location.pathname.startsWith("/app")) {
-    return <LandingPage />;
-  }
-  return <AppInner />;
-}
-
-function AppInner() {
   const [page, setPage] = useState<PageKey>("estimate");
   const [health, setHealth] = useState<{ catalog: number; games: number } | null>(null);
   const [online, setOnline] = useState<boolean | null>(null);

@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 
 from . import cnn as cnn_mod, ml
 from .config import BASE_DIR
@@ -64,18 +64,9 @@ app.include_router(vision.router)
 
 
 # 前端静态资源（构建产物存在时伺服）
-# SPA fallback：/ 与 /app 等非 API 路径都返回 index.html（前端按 pathname 路由）；
-# 存在的静态文件（js/css/图片）直接返回。
 DIST = BASE_DIR / "frontend" / "dist"
-
-
-@app.get("/{full_path:path}", include_in_schema=False)
-def spa_fallback(full_path: str) -> FileResponse:
-    if DIST.exists() and full_path:
-        p = DIST / full_path
-        if p.is_file():
-            return FileResponse(str(p))
-    return FileResponse(str(DIST / "index.html"))
+if DIST.exists():
+    app.mount("/", StaticFiles(directory=str(DIST), html=True), name="frontend")
 
 
 def run() -> None:

@@ -9,9 +9,6 @@
 
 ## 2026-08-14
 
-### ✨ 新增 / 变更
-- 新增**电影式落地页**（`/` 路径）：单页滚动揭示 5 屏（Hero 逐字悬念 → 数据 blur 揭示 → 三重估值引擎分步动画 → 信任字幕 + 统计条 → CTA 金线按钮）；暖金/灰阶电影光影风格，IntersectionObserver + CSS 动画（无 GSAP/Framer），`prefers-reduced-motion` 下禁用动画；字体加载 Playfair Display / Noto Serif SC / Inter。原应用入口移至 `/app`（后端 main.py 增加 SPA fallback catch-all）。
-
 ### 🐛 修复
 - 修复图鉴弹窗「学习/变体」标签字体重贴（两个标签叠在同一位置）。改为同一容器并排显示。
 - 修复大量「图片缺失」：manifest 记录 956 条指向不存在文件的历史孤儿；从 `data/crops.bak_pre_stabilize` 备份补回 62 个藏品 777 条，清理全部孤儿索引。
