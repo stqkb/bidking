@@ -10,10 +10,7 @@ from typing import Any
 
 import joblib
 import numpy as np
-from sklearn.ensemble import HistGradientBoostingRegressor
-from sklearn.gaussian_process import GaussianProcessRegressor
-from sklearn.gaussian_process.kernels import Matern, WhiteKernel
-from sklearn.linear_model import BayesianRidge
+# sklearn 惰性导入（冷启动优化：sklearn.ensemble 约 1.75s），在 _make_models 内按需加载
 
 from .config import MODELS_DIR
 from .db import db, json_dumps
@@ -144,6 +141,11 @@ def _impute(feats: list[dict[str, Any]]) -> dict[str, float]:
 
 
 def _make_models(fast_gp: bool = False):
+    # sklearn 惰性导入（冷启动优化：sklearn.ensemble 约 1.75s，仅在训练/预测首次调用时加载）
+    from sklearn.ensemble import HistGradientBoostingRegressor
+    from sklearn.gaussian_process import GaussianProcessRegressor
+    from sklearn.gaussian_process.kernels import Matern, WhiteKernel
+    from sklearn.linear_model import BayesianRidge
     # fast_gp=True 用于 LOOCV：GP 不做多次重启核优化（单次优化精度相同，
     # 但 fit 快 ~4 倍，诚实无泄漏——每次留一用相同起点）
     return {
@@ -168,7 +170,8 @@ def _make_models(fast_gp: bool = False):
     }
 
 
-def _find_gp(models) -> GaussianProcessRegressor | None:
+def _find_gp(models):
+    from sklearn.gaussian_process import GaussianProcessRegressor
     return next((m for m in models if isinstance(m, GaussianProcessRegressor)), None)
 
 

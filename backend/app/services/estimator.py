@@ -9,7 +9,7 @@ import json
 import os
 from typing import Any
 
-from .. import cnn as cnn_mod, engine, ml
+from .. import engine, ml  # cnn 惰性导入（冷启动优化：import torch ~2s，仅 CNN 训练/融合时加载）
 from ..core import cache
 from ..core.bg import bg
 from ..db import db
@@ -86,6 +86,7 @@ def merge_ml(rule: dict[str, Any], inputs: dict[str, Any]) -> dict[str, Any]:
 
 def merge_cnn(rule: dict[str, Any], board: list[list[int]]) -> dict[str, Any]:
     """CNN 可用时与当前红品期望 50/50 融合（原名 main._merge_cnn）。"""
+    from .. import cnn as cnn_mod
     res = cnn_mod.predict_board(board)
     rule["cnn"] = res
     if not res.get("ok"):
@@ -293,6 +294,7 @@ def retrain_ml(conn=None) -> None:
 
 def retrain_cnn(conn=None) -> None:
     """后台线程执行 CNN 重训，完成后标记状态。conn 非空时复用调用方连接。"""
+    from .. import cnn as cnn_mod
     if conn is not None:
         cnn_mod.train(conn)
     else:
@@ -307,6 +309,7 @@ def retrain_all() -> None:
     原实现对局确认后同时 start ml 与 cnn 两个后台线程，会竞争 CPU 与
     数据库连接；改为按序执行并复用同一连接，由调用方注册为单一任务「train」。
     """
+    from .. import cnn as cnn_mod
     with db() as conn:
         ml.retrain(conn)
         cnn_mod.train(conn)

@@ -10,6 +10,7 @@
 ## 2026-08-14
 
 ### ✨ 新增 / 变更
+- **冷启动优化（7.19s → 1.08s，6.6 倍）**：延迟导入重依赖——`vision.py` 的 torch/torchvision（CUDA 初始化 ~5-10s）改在 `_get_model`/`_encode` 内按需导入；`ocr.py` 的 `rapidocr_onnxruntime`（onnxruntime ~2s）与 GPU DLL 检测改在 `get_ocr` 内首次调用时执行；`ml.py` 的 sklearn（~1.75s）改在 `_make_models` 内导入；`cnn` 模块（torch）从 `main.py`/`estimate.py`/`estimator.py` 顶层改为惰性导入。估值流程不再加载 torch/onnxruntime；首次调用视觉/ML 时才加载。
 - **一键归档（数据采集效率）**：新增 `POST /api/quick-archive`（估值结果直接保存为对局，有结算→`settled`，无→`pending_settlement`）、`POST /api/settle/{game_no}`（补充实际值并触发重训）、`GET /api/pending-settlement`（待结算列表）。**待结算局（估值当实际）自动排除出训练集**（`build_dataset` 过滤），settle 后进入训练，避免模型自我强化。`game_records` 新增 `status` 列（CREATE + ALTER 兼容）。
 - **遗留页色值迁移**：AnnotatePage / CnnPage / LearnPage / OcrPage / BoardEditor 共 **131 处**旧色值（`text-slate-*`、`text-indigo-*`、`bg-emerald-*`、`border-rose-*` 等）全部迁移到 design token 语义类（`text-content-*`、`text-gold-400`、`text-jade-400`、`text-vermilion-400`、`bg-*-soft` 等）；**删除 index.css 旧类名兼容映射段**（394-485 行），构建零错误、全 src 旧色值清零（amber 保留为设计语义色）。
 - **后端封版字段**：`/api/estimate` 的 bid 响应新增 `confidence`（GP std 推算，0-1）与 `interval_method`（`gp_conformal` / `loocv_fallback` / `rule_mc`），供前端 IntervalBar 展示。

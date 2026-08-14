@@ -5,7 +5,7 @@ from typing import Any
 
 from fastapi import APIRouter, HTTPException
 
-from .. import cnn as cnn_mod, ml, schemas
+from .. import ml, schemas  # cnn 惰性导入（冷启动优化）
 from ..core.bg import bg
 from ..db import db
 from ..services import estimator
@@ -42,9 +42,11 @@ def cnn_train() -> dict[str, Any]:
 
 @router.get("/api/cnn/status")
 def cnn_status() -> dict[str, Any]:
+    from .. import cnn as cnn_mod  # 惰性导入（冷启动优化）
     return cnn_mod.status()
 
 
 @router.post("/api/cnn/predict")
 def cnn_predict(body: schemas.CnnPredictInput) -> dict[str, Any]:
+    from .. import cnn as cnn_mod  # 惰性导入（冷启动优化）
     return cnn_mod.predict_board(body.board)

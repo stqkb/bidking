@@ -21,10 +21,9 @@ from typing import Any
 
 import cv2
 import numpy as np
-import torch
-import torch.nn.functional as F
-from PIL import Image, ImageEnhance
-from torchvision.models import resnet50, ResNet50_Weights
+from PIL import Image, ImageEnhance  # 轻量（~0.1s），保留顶层
+# torch/torchvision 延迟导入（冷启动优化）：合计 ~5-10s（CUDA 初始化），
+# 仅估值流程不需要；在 _get_model/_encode 内按需 import。
 
 from .config import CROPS_DIR, DATA_DIR, OCR_PROCESSED_DIR, SCAN_DIR
 from .core.norm import norm_name as _norm
@@ -39,11 +38,49 @@ FEAT_DIM = 2048
 
 _model = None
 _gallery_cache: dict[str, Any] = {"manifest": None, "feats": None}
-_device = "cuda" if torch.cuda.is_available() else "cpu"
+_device: str | None = None
+_MODEL_TRACE: Path | None = None
 
-# TorchScript trace 缓存：免每次进程启动重新构造 torchvision ResNet50（节省约 1~2s 初始化）。
-# 注意：放系统 temp（英文路径）——torch.jit.save/load 在中文路径下会失败。
-_MODEL_TRACE = Path(tempfile.gettempdir()) / f"bidking_resnet50_feat_{'cuda' if _device == 'cuda' else 'cpu'}.pt"
+
+def _get_device() -> str:
+    """惰性探测 CUDA（首次调用才 import torch）。"""
+    global _device
+    if _device is None:
+        import torch
+        _device = "cuda" if torch.cuda.is_available() else "cpu"
+    return _device
+
+
+def _get_model_trace() -> Path:
+    """TorchScript trace 缓存路径（惰性计算）。
+
+    放系统 temp（英文路径）——torch.jit.save/load 在中文路径下会失败。
+    """
+    global _MODEL_TRACE
+    if _MODEL_TRACE is None:
+        _MODEL_TRACE = (
+            Path(tempfile.gettempdir())
+            / f"bidking_resnet50_feat_{'cuda' if _get_device() == 'cuda' else 'cpu'}.pt"
+        )
+    return _MODEL_TRACE
+
+
+def _torch_available() -> bool:
+    try:
+        import torch
+        return torch.cuda.is_available()
+    except ImportError:  # noqa: BLE001
+        return False
+
+
+def _gpu_name() -> str | None:
+    try:
+        import torch
+        if torch.cuda.is_available():
+            return torch.cuda.get_device_name(0)
+    except ImportError:  # noqa: BLE001
+        pass
+    return None
 
 
 # ---------------------------------------------------------------- 基础工具
@@ -74,18 +111,23 @@ def _cached_manifest() -> list[dict[str, Any]]:
 # ---------------------------------------------------------------- 编码器
 
 
-def _get_model() -> torch.nn.Module:
+def _get_model() -> "torch.nn.Module":
     """ResNet50(ImageNet) 去掉 fc，输出 avgpool 后 2048 维特征。
 
     优先加载 TorchScript trace 缓存（免 torchvision 构造开销）；无缓存时构造
     并 trace 落盘。GPU 下使用 FP16 半精度，推理速度约翻倍。
+    torch/torchvision 在此处按需导入（冷启动优化）。
     """
     global _model
     if _model is None:
-        if _MODEL_TRACE.exists():
+        import torch
+        from torchvision.models import resnet50, ResNet50_Weights
+        trace = _get_model_trace()
+        device = _get_device()
+        if trace.exists():
             try:
-                m = torch.jit.load(str(_MODEL_TRACE)).to(_device).eval()
-                if _device == "cuda":
+                m = torch.jit.load(str(trace)).to(device).eval()
+                if device == "cuda":
                     m = m.half()
                 _model = m
                 return _model
@@ -101,12 +143,12 @@ def _get_model() -> torch.nn.Module:
             # 再转移到目标 device，避免模型被挪回 cpu。
             dummy = torch.zeros(1, 3, IMG_SIZE, IMG_SIZE)
             traced = torch.jit.trace(m, dummy)
-            torch.jit.save(traced, str(_MODEL_TRACE))
+            torch.jit.save(traced, str(trace))
         except Exception:  # noqa: BLE001 trace 失败不阻塞，退回普通模型
             pass
-        if _device == "cuda":
+        if device == "cuda":
             m = m.half()
-        m.to(_device)
+        m.to(device)
         _model = m
     return _model
 
@@ -115,16 +157,20 @@ def _encode(images: list[Image.Image]) -> np.ndarray:
     """批量编码为 L2 归一化特征 (n, 2048)。可替换为 CLIP 实现。"""
     if not images:
         return np.zeros((0, FEAT_DIM), dtype=np.float32)
+    import torch
+    import torch.nn.functional as F
+    from torchvision.models import ResNet50_Weights
     tf = ResNet50_Weights.IMAGENET1K_V1.transforms()
     model = _get_model()
+    device = _get_device()
     out: list[np.ndarray] = []
     chunk = 32  # CPU 内存保护：分批前向，结果与整批一致
     with torch.no_grad():
         for i in range(0, len(images), chunk):
             prepped = [im if im.mode == "RGB" else im.convert("RGB") for im in images[i : i + chunk]]
             batch = torch.stack([tf(im) for im in prepped])
-            batch = batch.to(_device)
-            if _device == "cuda":
+            batch = batch.to(device)
+            if device == "cuda":
                 batch = batch.half()
             feats = F.normalize(model(batch), p=2, dim=1)
             out.append(feats.cpu().numpy())
@@ -988,10 +1034,10 @@ def recognition_status() -> dict[str, Any]:
         "total_entries": total,
         "distinct_names": len(names),
         "learn_samples": learn_cnt,
-        "device": _device,
-        "cuda": torch.cuda.is_available(),
-        "gpu_name": torch.cuda.get_device_name(0) if torch.cuda.is_available() else None,
-        "fp16": _device == "cuda",
+        "device": _get_device(),
+        "cuda": _torch_available(),
+        "gpu_name": _gpu_name(),
+        "fp16": _get_device() == "cuda",
         "fingerprint": _manifest_fingerprint(manifest) if manifest else None,
     }
     if len(manifest) >= 2:
@@ -1012,5 +1058,5 @@ def rebuild_features() -> dict[str, Any]:
         "samples": len(manifest),
         "distinct_names": len({m["name"] for m in manifest}),
         "feat_dim": int(feats.shape[1]) if len(feats) else 0,
-        "device": _device,
+        "device": _get_device(),
     }

@@ -9,7 +9,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from . import cnn as cnn_mod, ml
+from . import ml  # cnn 惰性导入（冷启动优化），仅在启动自检需要时加载
 from .config import BASE_DIR
 from .core.bg import bg
 from .db import db, init_db
@@ -52,8 +52,10 @@ def _startup() -> None:
         ml_stat = ml.model_status(conn)
     if n_games >= ml.MIN_SAMPLES and not ml_stat.get("trained"):
         bg.start("ml", estimator.retrain_ml)
-    if n_cat > 0 and not cnn_mod.status().get("trained"):
-        bg.start("cnn", estimator.retrain_cnn)
+    if n_cat > 0:
+        from . import cnn as cnn_mod  # 惰性导入（冷启动优化）
+        if not cnn_mod.status().get("trained"):
+            bg.start("cnn", estimator.retrain_cnn)
 
 
 app.include_router(health.router)

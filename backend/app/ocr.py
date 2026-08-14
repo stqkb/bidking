@@ -17,7 +17,7 @@ from typing import Any
 import numpy as np
 import cv2
 from PIL import Image
-from rapidocr_onnxruntime import RapidOCR
+# rapidocr_onnxruntime（含 onnxruntime ~2s）惰性导入，见 get_ocr()
 
 from .config import AUCTION_DIR, OCR_FAILED_DIR, OCR_PROCESSED_DIR, SCAN_DIR
 from .core import cache
@@ -27,11 +27,21 @@ from .services import matching
 
 from .config import DATA_DIR
 
-_ocr: RapidOCR | None = None
+_ocr = None  # RapidOCR 惰性实例化
+_GPU_DLLS_DONE = False
 
-# GPU OCR：若安装了 onnxruntime-gpu，把 torch 自带的 CUDA 12 DLL 目录加入搜索路径，
-# 使 RapidOCR 能实际使用 CUDAExecutionProvider（无 GPU 时自动回退 CPU）。
-if os.environ.get("BIDKING_OCR_CPU") != "1":
+
+def _ensure_gpu_dlls() -> None:
+    """GPU OCR：若安装了 onnxruntime-gpu，把 torch 自带的 CUDA 12 DLL 目录加入搜索路径，
+    使 RapidOCR 能实际使用 CUDAExecutionProvider（无 GPU 时自动回退 CPU）。
+    惰性执行（冷启动优化：import onnxruntime/torch 较重，仅首次 OCR 时触发）。
+    """
+    global _GPU_DLLS_DONE
+    if _GPU_DLLS_DONE:
+        return
+    _GPU_DLLS_DONE = True
+    if os.environ.get("BIDKING_OCR_CPU") == "1":
+        return
     try:
         import onnxruntime as _ort
 
@@ -51,9 +61,11 @@ _STOPWORDS = {
 }
 
 
-def get_ocr() -> RapidOCR:
+def get_ocr():
     global _ocr
     if _ocr is None:
+        _ensure_gpu_dlls()
+        from rapidocr_onnxruntime import RapidOCR
         _ocr = RapidOCR()
     return _ocr
 
