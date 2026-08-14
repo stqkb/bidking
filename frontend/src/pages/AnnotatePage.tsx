@@ -413,10 +413,16 @@ export default function AnnotatePage() {
   };
 
   const updateSettle = (k: "total_value" | "deal_price" | "profit", v: string) => {
-    setSummary((prev) => ({
-      ...prev,
-      settle: { ...prev.settle, [k]: v === "" ? null : Number(v) || 0 },
-    }));
+    setSummary((prev) => {
+      const settle = { ...prev.settle, [k]: v === "" ? null : Number(v) || 0 };
+      // 总价值 / 成交价 任一变更时，收益自动按「总价值 − 成交价」算出
+      if (k !== "profit") {
+        const tv = settle.total_value;
+        const dp = settle.deal_price;
+        settle.profit = tv != null && dp != null ? tv - dp : null;
+      }
+      return { ...prev, settle };
+    });
   };
 
   const saveSummary = async () => {
@@ -810,7 +816,7 @@ export default function AnnotatePage() {
               />
             </div>
             <div>
-              <div className="text-xs text-slate-500">收益（可改）</div>
+              <div className="text-xs text-slate-500">收益（= 总价值−成交价，自动算）</div>
               <input
                 className={`input mt-1 w-full !py-1 text-sm tabular-nums ${
                   summary.settle.profit != null && summary.settle.profit < 0 ? "!text-rose-400" : "!text-emerald-400"

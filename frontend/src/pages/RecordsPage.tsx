@@ -89,6 +89,19 @@ export default function RecordsPage() {
     });
   };
 
+  const gameFormField = (k: "total_value" | "deal_price" | "profit", v: string) => {
+    setGameForm((prev) => {
+      const f = { ...prev, [k]: v };
+      // 总价值 / 成交价 任一变更时，收益自动按「总价值 − 成交价」算出
+      if (k !== "profit") {
+        const tv = f.total_value === "" ? null : Number(f.total_value) || 0;
+        const dp = f.deal_price === "" ? null : Number(f.deal_price) || 0;
+        f.profit = tv != null && dp != null ? String(tv - dp) : "";
+      }
+      return f;
+    });
+  };
+
   const saveGameEdit = async (g: GameRecord) => {
     const num = (s: string) => (s === "" ? null : Number(s) || 0);
     await api.updateGamePrices(g.game_no, {
@@ -411,7 +424,7 @@ export default function RecordsPage() {
                                 className="input w-32 !py-1 text-xs"
                                 type="number"
                                 value={gameForm.total_value}
-                                onChange={(e) => setGameForm({ ...gameForm, total_value: e.target.value })}
+                                onChange={(e) => gameFormField("total_value", e.target.value)}
                               />
                             </div>
                             <div>
@@ -420,7 +433,7 @@ export default function RecordsPage() {
                                 className="input w-32 !py-1 text-xs"
                                 type="number"
                                 value={gameForm.deal_price}
-                                onChange={(e) => setGameForm({ ...gameForm, deal_price: e.target.value })}
+                                onChange={(e) => gameFormField("deal_price", e.target.value)}
                               />
                             </div>
                             <div>
@@ -429,7 +442,7 @@ export default function RecordsPage() {
                                 className="input w-32 !py-1 text-xs"
                                 type="number"
                                 value={gameForm.profit}
-                                onChange={(e) => setGameForm({ ...gameForm, profit: e.target.value })}
+                                onChange={(e) => gameFormField("profit", e.target.value)}
                               />
                             </div>
                             <button className="btn-primary !py-1 text-xs" onClick={() => saveGameEdit(g)}>
