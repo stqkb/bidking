@@ -25708,5 +25708,401 @@
   "variant": true,
   "augmented": true,
   "manual": true
+ },
+ {
+  "name": "《奔马图》",
+  "grid_cells": 4,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\奔马图\\366324560.png",
+  "source": "learn",
+  "variant": false,
+  "augmented": true,
+  "manual": true
+ },
+ {
+  "name": "《奔马图》",
+  "grid_cells": 4,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\奔马图\\366324560_v0.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true,
+  "manual": true
+ },
+ {
+  "name": "《奔马图》",
+  "grid_cells": 4,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\奔马图\\366324560_v1.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true,
+  "manual": true
+ },
+ {
+  "name": "《奔马图》",
+  "grid_cells": 4,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\奔马图\\366324560_v2.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true,
+  "manual": true
+ },
+ {
+  "name": "《奔马图》",
+  "grid_cells": 4,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\奔马图\\366324560_v3.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true,
+  "manual": true
+ },
+ {
+  "name": "《奔马图》",
+  "grid_cells": 4,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\奔马图\\366324560_v4.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true,
+  "manual": true
+ },
+ {
+  "name": "《奔马图》",
+  "grid_cells": 4,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\奔马图\\366324560_v5.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true,
+  "manual": true
+ },
+ {
+  "name": "《奔马图》",
+  "grid_cells": 4,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\奔马图\\366324560_v6.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true,
+  "manual": true
+ },
+ {
+  "name": "《奔马图》",
+  "grid_cells": 4,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\奔马图\\366324560_v7.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true,
+  "manual": true
+ },
+ {
+  "name": "《奔马图》",
+  "grid_cells": 4,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\奔马图\\366324560_v8.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true,
+  "manual": true
+ },
+ {
+  "name": "《奔马图》",
+  "grid_cells": 4,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\奔马图\\366324560_v9.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true,
+  "manual": true
+ },
+ {
+  "name": "高冰种原石",
+  "grid_cells": 4,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\高冰种原石\\804758506.png",
+  "source": "learn",
+  "variant": false,
+  "augmented": true,
+  "manual": true
+ },
+ {
+  "name": "高冰种原石",
+  "grid_cells": 4,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\高冰种原石\\804758506_v0.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true,
+  "manual": true
+ },
+ {
+  "name": "高冰种原石",
+  "grid_cells": 4,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\高冰种原石\\804758506_v1.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true,
+  "manual": true
+ },
+ {
+  "name": "高冰种原石",
+  "grid_cells": 4,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\高冰种原石\\804758506_v2.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true,
+  "manual": true
+ },
+ {
+  "name": "高冰种原石",
+  "grid_cells": 4,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\高冰种原石\\804758506_v3.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true,
+  "manual": true
+ },
+ {
+  "name": "高冰种原石",
+  "grid_cells": 4,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\高冰种原石\\804758506_v4.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true,
+  "manual": true
+ },
+ {
+  "name": "高冰种原石",
+  "grid_cells": 4,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\高冰种原石\\804758506_v5.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true,
+  "manual": true
+ },
+ {
+  "name": "高冰种原石",
+  "grid_cells": 4,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\高冰种原石\\804758506_v6.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true,
+  "manual": true
+ },
+ {
+  "name": "高冰种原石",
+  "grid_cells": 4,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\高冰种原石\\804758506_v7.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true,
+  "manual": true
+ },
+ {
+  "name": "高冰种原石",
+  "grid_cells": 4,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\高冰种原石\\804758506_v8.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true,
+  "manual": true
+ },
+ {
+  "name": "高冰种原石",
+  "grid_cells": 4,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\高冰种原石\\804758506_v9.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true,
+  "manual": true
+ },
+ {
+  "name": "感光密镶钻链",
+  "grid_cells": 1,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\感光密镶钻链\\1917032.png",
+  "source": "learn",
+  "variant": false,
+  "augmented": true,
+  "manual": true
+ },
+ {
+  "name": "感光密镶钻链",
+  "grid_cells": 1,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\感光密镶钻链\\1917032_v0.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true,
+  "manual": true
+ },
+ {
+  "name": "感光密镶钻链",
+  "grid_cells": 1,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\感光密镶钻链\\1917032_v1.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true,
+  "manual": true
+ },
+ {
+  "name": "感光密镶钻链",
+  "grid_cells": 1,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\感光密镶钻链\\1917032_v2.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true,
+  "manual": true
+ },
+ {
+  "name": "感光密镶钻链",
+  "grid_cells": 1,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\感光密镶钻链\\1917032_v3.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true,
+  "manual": true
+ },
+ {
+  "name": "感光密镶钻链",
+  "grid_cells": 1,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\感光密镶钻链\\1917032_v4.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true,
+  "manual": true
+ },
+ {
+  "name": "感光密镶钻链",
+  "grid_cells": 1,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\感光密镶钻链\\1917032_v5.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true,
+  "manual": true
+ },
+ {
+  "name": "感光密镶钻链",
+  "grid_cells": 1,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\感光密镶钻链\\1917032_v6.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true,
+  "manual": true
+ },
+ {
+  "name": "感光密镶钻链",
+  "grid_cells": 1,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\感光密镶钻链\\1917032_v7.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true,
+  "manual": true
+ },
+ {
+  "name": "感光密镶钻链",
+  "grid_cells": 1,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\感光密镶钻链\\1917032_v8.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true,
+  "manual": true
+ },
+ {
+  "name": "感光密镶钻链",
+  "grid_cells": 1,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\感光密镶钻链\\1917032_v9.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true,
+  "manual": true
+ },
+ {
+  "name": "名车轮胎",
+  "grid_cells": 4,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\名车轮胎\\213354343.png",
+  "source": "learn",
+  "variant": false,
+  "augmented": true,
+  "manual": true
+ },
+ {
+  "name": "名车轮胎",
+  "grid_cells": 4,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\名车轮胎\\213354343_v0.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true,
+  "manual": true
+ },
+ {
+  "name": "名车轮胎",
+  "grid_cells": 4,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\名车轮胎\\213354343_v1.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true,
+  "manual": true
+ },
+ {
+  "name": "名车轮胎",
+  "grid_cells": 4,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\名车轮胎\\213354343_v2.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true,
+  "manual": true
+ },
+ {
+  "name": "名车轮胎",
+  "grid_cells": 4,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\名车轮胎\\213354343_v3.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true,
+  "manual": true
+ },
+ {
+  "name": "名车轮胎",
+  "grid_cells": 4,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\名车轮胎\\213354343_v4.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true,
+  "manual": true
+ },
+ {
+  "name": "名车轮胎",
+  "grid_cells": 4,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\名车轮胎\\213354343_v5.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true,
+  "manual": true
+ },
+ {
+  "name": "名车轮胎",
+  "grid_cells": 4,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\名车轮胎\\213354343_v6.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true,
+  "manual": true
+ },
+ {
+  "name": "名车轮胎",
+  "grid_cells": 4,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\名车轮胎\\213354343_v7.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true,
+  "manual": true
+ },
+ {
+  "name": "名车轮胎",
+  "grid_cells": 4,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\名车轮胎\\213354343_v8.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true,
+  "manual": true
+ },
+ {
+  "name": "名车轮胎",
+  "grid_cells": 4,
+  "path": "E:\\桌面\\拍卖预测\\竞拍之王项目\\data\\crops\\名车轮胎\\213354343_v9.png",
+  "source": "learn",
+  "variant": true,
+  "augmented": true,
+  "manual": true
  }
 ]
