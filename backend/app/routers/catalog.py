@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 
 from .. import engine, ocr as ocr_mod, schemas, vision
 from ..config import XLSX_SOURCE
@@ -215,35 +215,56 @@ def game_items_update(game_no: int, body: schemas.ItemsUpdateInput) -> dict[str,
 
 
 @router.post("/api/quick-archive")
-def quick_archive(body: schemas.QuickArchiveInput) -> dict[str, Any]:
+async def quick_archive(request: Request) -> dict[str, Any]:
     """一键归档：把一次估值结果保存为对局记录（数据采集效率优化）。
+
+    兼容两种请求结构：
+      A. 前端向导：{ input: {red_avg, red_count, total_grids, known_items}, result: {red/full/bid} }
+      B. 平铺：    { red_avg, known_items, estimate_result, actual_full, actual_red }（QuickArchiveInput）
 
     提供 actual_full 视为已结算（status=settled）；未提供则标记
     status=pending_settlement（红品/全场默认取估值），待结算局不进模型训练，
     由 POST /api/settle/{game_no} 补充实际值后进入训练集。
     """
+    try:
+        body = await request.json()
+    except Exception:  # noqa: BLE001
+        raise HTTPException(status_code=400, detail="请求体不是合法 JSON")
+    if not isinstance(body, dict):
+        raise HTTPException(status_code=400, detail="请求体应为 JSON 对象")
+    # 兼容嵌套 {input, result} 与平铺结构
+    inp = body.get("input") if isinstance(body.get("input"), dict) else body
+    result = body.get("result") if isinstance(body.get("result"), dict) else body.get("estimate_result") or {}
+
+    raw_items = inp.get("known_items") or []
     items = [
-        {"name": it.name, "grid_cells": int(it.grid_cells or 0),
-         "trade_price": float(it.value or 0)}
-        for it in body.known_items
+        {
+            "name": str((it.get("name") if isinstance(it, dict) else "") or ""),
+            "grid_cells": int(it.get("grid_cells") or it.get("size") or 0),
+            "trade_price": float(it.get("value") or 0),
+        }
+        for it in raw_items
+        if isinstance(it, dict)
     ]
-    est = body.estimate_result or {}
-    est_red = float((est.get("red") or {}).get("ev") or 0)
-    est_full = float((est.get("full") or {}).get("ev") or 0)
-    red_value = float(body.actual_red) if body.actual_red is not None else est_red
-    full_value = float(body.actual_full) if body.actual_full is not None else est_full
+    est_red = float((result.get("red") or {}).get("ev") or 0)
+    est_full = float((result.get("full") or {}).get("ev") or 0)
+    actual_full = inp.get("actual_full")
+    actual_red = inp.get("actual_red")
+    red_value = float(actual_red) if actual_red is not None else est_red
+    full_value = float(actual_full) if actual_full is not None else est_full
+    # 锁定候选优先；其次手填；再退 items 求和
     if items:
         cells = [it["grid_cells"] for it in items]
-        red_grids = int(body.total_grids or sum(cells))
-        red_count = len(items)
-        red_avg = round(red_grids / red_count, 1) if red_count else None
+        grid_total = int(inp.get("selected_red_grids") or inp.get("total_grids") or inp.get("red_grids") or sum(cells))
+        red_count = int(inp.get("selected_red_count") or inp.get("red_count") or len(items))
+        red_avg = round(grid_total / red_count, 1) if red_count else None
         combo = "+".join(str(c) for c in sorted(cells)) if cells else None
     else:
-        red_grids = int(body.total_grids or 0)
-        red_count = int(body.red_count or 0)
-        red_avg = round(float(body.red_avg), 1) if body.red_avg else None
+        grid_total = int(inp.get("selected_red_grids") or inp.get("total_grids") or inp.get("red_grids") or 0)
+        red_count = int(inp.get("selected_red_count") or inp.get("red_count") or 0)
+        red_avg = round(float(inp.get("red_avg") or 0), 1) if inp.get("red_avg") else None
         combo = None
-    status = "settled" if body.actual_full is not None else "pending_settlement"
+    status = "settled" if actual_full is not None else "pending_settlement"
     now = datetime.now().isoformat(timespec="seconds")
     with db() as conn:
         game_no = conn.execute(
@@ -254,7 +275,7 @@ def quick_archive(body: schemas.QuickArchiveInput) -> dict[str, Any]:
                (game_no, grid_combo, red_count, red_grids, red_avg, red_value,
                 full_value, deal_price, profit, items_json, won, profit_ok, status)
                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)""",
-            (game_no, combo, red_count or None, red_grids or None, red_avg,
+            (game_no, combo, red_count or None, grid_total or None, red_avg,
              red_value or None, full_value or None, None, None,
              json_dumps(items), 0, 1, status),
         )
