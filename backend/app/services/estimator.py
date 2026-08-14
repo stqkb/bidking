@@ -5,6 +5,8 @@
 """
 from __future__ import annotations
 
+import json
+import os
 from typing import Any
 
 from .. import cnn as cnn_mod, engine, ml
@@ -16,6 +18,24 @@ from ..db import db
 ML_BLEND_WEIGHT = 0.5
 # CNN 与当前红品期望的融合比例（原 hardcode 0.5）
 CNN_BLEND_WEIGHT = 0.5
+
+# ---- 估值结果 LRU 缓存（runbook 任务14：推理加速）----
+# 相同输入（含模型版本）直接返回，避免重复跑规则引擎蒙特卡洛（~1s）。
+_EST_CACHE: dict[str, Any] = {}
+_EST_CACHE_ORDER: list[str] = []
+_EST_CACHE_MAX = 64
+
+
+def _est_key(inputs: dict[str, Any]) -> str:
+    try:
+        body = json.dumps(inputs, sort_keys=True, ensure_ascii=False, default=str)
+    except Exception:  # noqa: BLE001
+        return ""
+    try:
+        mt = os.path.getmtime(ml.MODELS_DIR / "ml_full.joblib")
+    except Exception:  # noqa: BLE001
+        mt = 0.0
+    return f"{body}|{mt:.0f}"
 
 
 def merge_ml(rule: dict[str, Any], inputs: dict[str, Any]) -> dict[str, Any]:
@@ -95,7 +115,16 @@ def estimate(inputs: dict[str, Any], board: list[list[int]] | None = None) -> di
     """估值编排：规则引擎 → ML 融合 → CNN 融合 → 历史校准。
 
     纯函数，不抛 HTTP 异常；路由层负责把返回中的 "error" 转成 400。
+    相同输入（board=None，含模型版本）走 LRU 缓存，避免重复蒙特卡洛（~1s）。
     """
+    key = "" if board is not None else _est_key(inputs)
+    if key:
+        hit = _EST_CACHE.get(key)
+        if hit is not None:
+            if key in _EST_CACHE_ORDER:
+                _EST_CACHE_ORDER.remove(key)
+            _EST_CACHE_ORDER.append(key)
+            return hit
     with db() as conn:
         rule = engine.run_estimate(conn, inputs)
     if "error" in rule:
@@ -109,6 +138,12 @@ def estimate(inputs: dict[str, Any], board: list[list[int]] | None = None) -> di
     if board is not None:
         rule = merge_cnn(rule, board)
     _apply_calibration(rule, inputs)
+    if key:
+        _EST_CACHE[key] = rule
+        _EST_CACHE_ORDER.append(key)
+        if len(_EST_CACHE_ORDER) > _EST_CACHE_MAX:
+            old = _EST_CACHE_ORDER.pop(0)
+            _EST_CACHE.pop(old, None)
     return rule
 
 
