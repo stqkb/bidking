@@ -6,7 +6,10 @@ import math
 import os
 import re
 import shutil
+import threading
 import time
+from collections import OrderedDict
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -109,8 +112,26 @@ def _inline_number(t: str) -> float | None:
     return _parse_price(m.group(1))
 
 
+# 识别结果 LRU 缓存：同一文件（路径+mtime+大小+缩放档位）不重复 OCR。
+# 对局归档/多图合并等场景常对同一张图多次识别，命中后直接返回。
+_OCR_CACHE: "OrderedDict[tuple[Any, ...], list[dict[str, Any]]]" = OrderedDict()
+_OCR_CACHE_MAX = 64
+_OCR_CACHE_LOCK = threading.Lock()
+
+
+def _ocr_cache_key(path: str, scale: int) -> tuple[Any, ...]:
+    try:
+        st = os.stat(path)
+        return (os.path.abspath(path), st.st_mtime_ns, st.st_size, scale)
+    except OSError:
+        return (os.path.abspath(path), 0, 0, scale)
+
+
 def _full_texts(path: str, scale: int = 3) -> list[dict[str, Any]]:
-    """整图 OCR（传文件路径，保留 RapidOCR 内部预处理；动态缩放，GPU 加速）。"""
+    """整图 OCR：缩放后以内存 ndarray 传给 RapidOCR（无临时文件 IO），结果 LRU 缓存。
+
+    scale=3 时按图长边动态降档（>1600→1、>900→2），控制 OCR 输入尺寸。
+    """
     im = Image.open(path).convert("RGB")
     w, h = im.size
     # 动态缩放：大图不放大，小图放大，控制 OCR 输入尺寸在 ~2000px 内
@@ -120,17 +141,20 @@ def _full_texts(path: str, scale: int = 3) -> list[dict[str, Any]]:
             scale = 1
         elif long_side > 900:
             scale = 2
+    key = _ocr_cache_key(path, scale)
+    cached = _OCR_CACHE.get(key)
+    if cached is not None:
+        return cached
     if scale != 1:
         im = im.resize((w * scale, h * scale), Image.LANCZOS)
-    tmp = str(Path(os.environ.get("TEMP", ".")) / f"_ocr_tmp_{int(time.time()*1000)}_{id(im)}.png")
-    im.save(tmp)
-    try:
-        out = _ocr_run(tmp)
-    finally:
-        Path(tmp).unlink(missing_ok=True)
+    out = _ocr_run(np.asarray(im))
     for b in out:
         for k in ("cx", "cy", "x0", "y0", "x1", "y1"):
             b[k] = b[k] / scale
+    with _OCR_CACHE_LOCK:
+        _OCR_CACHE[key] = out
+        if len(_OCR_CACHE) > _OCR_CACHE_MAX:
+            _OCR_CACHE.popitem(last=False)
     return out
 
 
@@ -277,18 +301,30 @@ def process_auction_dir(conn, folder: Path) -> dict[str, Any]:
     settlement: dict[str, Any] = {}
     items: list[dict[str, Any]] = []
     board_img: Path | None = None
-    for img in sorted(folder.glob("*")):
-        if img.suffix.lower() not in (".png", ".jpg", ".jpeg", ".bmp"):
-            continue
-        boxes = _full_texts(str(img))
-        s = parse_settlement(boxes)
-        if any(v is not None for v in s.values()):
-            for k, v in s.items():
-                if v is not None:
-                    settlement[k] = v
-        else:
-            board_img = img
-            items = _board_items(conn, boxes)
+    imgs = sorted(
+        f for f in folder.glob("*")
+        if f.suffix.lower() in (".png", ".jpg", ".jpeg", ".bmp")
+    )
+
+    def _ocr_one(p: Path) -> tuple[Path, list[dict[str, Any]] | None]:
+        try:
+            return p, _full_texts(str(p))
+        except Exception:  # noqa: BLE001
+            return p, None
+
+    # 多图并行 OCR（GPU/CPU 下线程池独立推理），按原顺序合并结果
+    with ThreadPoolExecutor(max_workers=min(4, max(1, len(imgs)))) as ex:
+        for img, boxes in ex.map(_ocr_one, imgs):
+            if boxes is None:
+                continue
+            s = parse_settlement(boxes)
+            if any(v is not None for v in s.values()):
+                for k, v in s.items():
+                    if v is not None:
+                        settlement[k] = v
+            elif board_img is None:
+                board_img = img
+                items = _board_items(conn, boxes)
     from . import vision
 
     crops_dir = DATA_DIR / "auction_crops" / folder.name
@@ -384,8 +420,8 @@ def _cluster_x(centers: list[float], img_w: int) -> list[list[int]]:
 
 
 def _ocr_texts(path: str) -> list[dict[str, Any]]:
-    """单图 OCR（传文件路径，保留 RapidOCR 内部预处理）。"""
-    return _ocr_run(path)
+    """单图 OCR（不缩放），走 _full_texts 的内存传递与识别缓存。"""
+    return _full_texts(path, scale=1)
 
 
 def _pair_items(boxes: list[dict[str, Any]], img_w: int, img_h: int) -> list[dict[str, Any]]:
@@ -549,7 +585,8 @@ def recognize_single(conn, image_path: str) -> dict[str, Any]:
             y0 = max(0, int(nb["y0"] - 3.0 * h))
             y1 = min(pil.height, int(nb["y0"]))
             crop = pil.crop((x0, y0, x1, y1))
-            cp = crops_dir / f"{i}.png"
+            # 多图并行时避免各线程覆盖同名裁剪文件：用图名前缀区分
+            cp = crops_dir / f"{p.stem}_{i}.png"
             crop.save(cp)
             it["crop_path"] = str(cp)
             try:
@@ -592,8 +629,6 @@ def recognize_multi(conn, image_paths: list[str]) -> dict[str, Any]:
     if not image_paths:
         return {"ok": False, "error": "未提供图片"}
     # 多图并行识别（GPU 下每张图独立推理，线程池加速）
-    from concurrent.futures import ThreadPoolExecutor
-
     def _run(p: str) -> dict[str, Any]:
         try:
             # SQLite 连接不可跨线程：每张图用独立连接

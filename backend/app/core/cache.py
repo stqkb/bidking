@@ -41,6 +41,7 @@ _cache = _Cache()
 
 # 缓存 key
 KEY_CATALOG_ROWS = "catalog_rows"      # catalog_items 全表（匹配服务用）
+KEY_CATALOG_INDEX = "catalog_index"    # 按归一化名称索引的图鉴（匹配服务用，避免每次匹配重复归一化）
 KEY_ALIAS_MAP = "alias_map"            # 图鉴别名映射（匹配服务用）
 KEY_CATALOG_STATS = "catalog_stats"    # 按格数统计（估值引擎用）
 KEY_BLENDED_STATS = "blended_stats"    # 截尾均值统计（估值引擎用）
@@ -50,7 +51,7 @@ KEY_FULL_RATIO = "full_ratio"          # 全场/红品价值倍率（估值引�
 
 def invalidate_catalog() -> None:
     """图鉴数据变化后调用：导入 Excel、删除藏品、OCR 确认新增/覆盖价格。"""
-    _cache.invalidate(KEY_CATALOG_ROWS, KEY_CATALOG_STATS, KEY_BLENDED_STATS)
+    _cache.invalidate(KEY_CATALOG_ROWS, KEY_CATALOG_INDEX, KEY_CATALOG_STATS, KEY_BLENDED_STATS)
 
 
 def invalidate_games() -> None:
