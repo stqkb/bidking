@@ -174,16 +174,18 @@ export default function RecordsPage() {
   })();
 
   const wonChartOption = (() => {
+    // 本人竞拍成功的局按拍下次序 1..N 连续排列（原局号不连续，避免折线断开）
     const ordered = [...games].sort((a, b) => a.game_no - b.game_no);
     const wp = ordered.filter((g) => g.won === 1 && g.profit !== null);
     if (wp.length === 0) return null;
     return {
       tooltip: {
         trigger: "item",
-        formatter: (p: any) => `局 ${p.data[0]}：${p.data[1] >= 0 ? "+" : ""}${fmtMoney(p.data[1])}`,
+        formatter: (p: any) =>
+          `第 ${p.data[0]} 次拍下（原局 ${wp[p.dataIndex].game_no}）：${p.data[1] >= 0 ? "+" : ""}${fmtMoney(p.data[1])}`,
       },
       grid: { left: 72, right: 20, top: 20, bottom: 36 },
-      xAxis: { type: "value", name: "局号", axisLabel: { color: "#94a3b8" }, splitLine: { lineStyle: { color: "#1e293b" } } },
+      xAxis: { type: "value", name: "拍下次序", min: 1, axisLabel: { color: "#94a3b8" }, splitLine: { lineStyle: { color: "#1e293b" } } },
       yAxis: {
         type: "value",
         name: "收益",
@@ -194,7 +196,7 @@ export default function RecordsPage() {
         {
           name: "本人竞拍成功收益",
           type: "line",
-          data: wp.map((g) => [g.game_no, g.profit]),
+          data: wp.map((g, i) => [i + 1, g.profit]),
           symbolSize: 8,
           itemStyle: { color: "#10b981" },
           lineStyle: { color: "#10b981", width: 2.5 },
@@ -349,7 +351,7 @@ export default function RecordsPage() {
           )}
           {wonChartOption && (
             <div>
-              <div className="mb-1 text-xs font-medium text-emerald-400">③ 本人竞拍成功的收益</div>
+              <div className="mb-1 text-xs font-medium text-emerald-400">③ 本人竞拍成功的收益（按拍下次序 1..N，悬停显示原局号）</div>
               <Chart option={wonChartOption} height={200} />
             </div>
           )}
