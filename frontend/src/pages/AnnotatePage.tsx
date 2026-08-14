@@ -439,7 +439,7 @@ export default function AnnotatePage() {
       if (j.ok) {
         const tip =
           j.profit_ok === 0
-            ? "，⚠️ 收益核验不通过（收益 ≠ 成交价−总价值），已保存但未进入模型训练"
+            ? "，⚠️ 收益核验不通过（收益 ≠ 总价值−成交价），已保存但未进入模型训练"
             : "，模型后台重训中";
         setMsg(
           `已保存为对局 #${j.game_no}：红品 ${j.red_count} 件 / ${j.total_cells} 格（均格 ${j.red_avg}）` +
@@ -827,15 +827,15 @@ export default function AnnotatePage() {
             const dp = summary.settle.deal_price;
             const pf = summary.settle.profit;
             if (tv == null || dp == null || pf == null) return null;
-            const calc = dp - tv;
+            const calc = tv - dp;
             const ok = Math.abs(pf - calc) <= 0.5;
             return ok ? (
               <div className="mt-2 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-1.5 text-xs text-emerald-400">
-                ✓ 收益核验通过：{fmtMoney(pf)} = 成交价 − 总价值
+                ✓ 收益核验通过：{fmtMoney(pf)} = 总价值 − 成交价
               </div>
             ) : (
               <div className="mt-2 rounded-lg border border-rose-500/40 bg-rose-500/10 px-3 py-1.5 text-xs text-rose-400">
-                ✗ 收益核验不通过：收益应为 成交价 − 总价值 = {fmtMoney(calc)}（当前 {fmtMoney(pf)}）。保存后该局将标红，且<strong>不进入模型训练</strong>。
+                ✗ 收益核验不通过：收益应为 总价值 − 成交价 = {fmtMoney(calc)}（当前 {fmtMoney(pf)}）。保存后该局将标红，且<strong>不进入模型训练</strong>。
               </div>
             );
           })()}

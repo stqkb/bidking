@@ -96,11 +96,11 @@ def _is_signed_price(t: str) -> bool:
 
 
 def _check_profit_ok(full_value, deal_price, profit) -> int:
-    """收益核验：profit 是否 = 成交价 - 总价值。数据齐全且吻合 → 1，否则 0。"""
+    """收益核验：profit 是否 = 总价值 - 成交价。数据齐全且吻合 → 1，否则 0。"""
     if full_value is None or deal_price is None or profit is None:
         return 1  # 缺数据不判错（历史兼容），仅当三值齐全且不吻合时标红
     try:
-        if abs(float(profit) - (float(deal_price) - float(full_value))) > 0.5:
+        if abs(float(profit) - (float(full_value) - float(deal_price))) > 0.5:
             return 0
     except (TypeError, ValueError):
         return 0
