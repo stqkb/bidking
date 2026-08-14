@@ -108,7 +108,7 @@ def vision_annotate(body: schemas.AnnotateInput) -> dict[str, Any]:
     if body.kind == "red":
         if not body.name.strip():
             raise HTTPException(status_code=400, detail="请填写红品名称")
-        vision.add_crop(body.name.strip(), body.grid_cells or 0, crop, source="learn")
+        vision.add_crop(body.name.strip(), body.grid_cells or 0, crop, source="learn", manual=True)
         with db() as conn:
             conn.execute(
                 """INSERT INTO vision_annotations(image_path, box, kind, name, grid_cells, value, created_at)

@@ -225,4 +225,5 @@ export interface VisionItem {
   n_images: number;
   images?: { id: number; path: string; source?: string; variant?: boolean }[];
   has_learn?: boolean;
+  has_manual?: boolean;  // 手动补录的漏检红品（视觉识别加强样本）
 }

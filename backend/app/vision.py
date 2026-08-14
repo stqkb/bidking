@@ -351,8 +351,12 @@ def _augment_manifest(n: int = 12) -> int:
 
 
 def add_crop(name: str, grid_cells: int, crop_img: Image.Image,
-             source: str = "ocr") -> dict[str, Any]:
-    """新增学习样本（source=learn 优先 / ocr 兜底），入库并生成增广变体。"""
+             source: str = "ocr", manual: bool = False) -> dict[str, Any]:
+    """新增学习样本（source=learn 优先 / ocr 兜底），入库并生成增广变体。
+
+    manual=True 表示「手动补录的漏检红品」，匹配时给分数加成（多注意/加强），
+    该标记会随增广变体一起继承。
+    """
     CROPS_DIR.mkdir(parents=True, exist_ok=True)
     key = _norm(name) or f"item_{int(np.random.rand() * 1e9)}"
     d = CROPS_DIR / key
@@ -367,6 +371,7 @@ def add_crop(name: str, grid_cells: int, crop_img: Image.Image,
         "source": source,
         "variant": False,
         "augmented": False,
+        "manual": bool(manual),
     }
     manifest = _load_manifest()
     manifest.append(entry)
@@ -569,7 +574,7 @@ def match_crop(crop_path: str | Path, topk: int = 5) -> dict[str, Any]:
             votes_map[nm] = votes_map.get(nm, 0) + 1
         src = m.get("source", "ocr")
         d = per_name.setdefault(nm, {"learn": None, "ocr": None})
-        cand = {"score": s, "path": m["path"], "cells": m.get("grid_cells", 0)}  # 重建样本可能缺 grid_cells
+        cand = {"score": s, "path": m["path"], "cells": m.get("grid_cells", 0), "manual": bool(m.get("manual"))}  # 重建样本可能缺 grid_cells
         cur = d[src]
         if cur is None or s > cur["score"]:
             d[src] = cand
@@ -586,14 +591,17 @@ def match_crop(crop_path: str | Path, topk: int = 5) -> dict[str, Any]:
         else:
             use = learn
             source = "learn"
+        # 手动补录的漏检红品：分数加成（多注意/加强），提高下次同类命中排名
+        bonus = 0.04 if use.get("manual") else 0.0
         # 多票加权：该 name 命中 >=0.75 的变体数量（单次遍历已统计）
         ranked.append({
             "name": nm,
             "grid_cells": use["cells"],
-            "score": round(use["score"], 4),  # 纯余弦相似度
+            "score": round(use["score"] + bonus, 4),  # 纯余弦 + 手动加成
             "gallery": use["path"],
             "source": source,
             "votes": votes_map.get(nm, 0),
+            "manual": bool(use.get("manual")),
         })
     ranked.sort(key=lambda x: -x["score"])
     return {"ok": True, "matches": ranked[:topk]}
@@ -620,7 +628,7 @@ def match_crops(crops: list[Image.Image], topk: int = 5) -> list[dict[str, Any]]
                 votes_map[nm] = votes_map.get(nm, 0) + 1
             src = m.get("source", "ocr")
             d = per_name.setdefault(nm, {"learn": None, "ocr": None})
-            cand = {"score": s, "path": m["path"], "cells": m.get("grid_cells", 0)}
+            cand = {"score": s, "path": m["path"], "cells": m.get("grid_cells", 0), "manual": bool(m.get("manual"))}
             cur = d[src]
             if cur is None or s > cur["score"]:
                 d[src] = cand
@@ -636,13 +644,15 @@ def match_crops(crops: list[Image.Image], topk: int = 5) -> list[dict[str, Any]]
             else:
                 use = learn
                 source = "learn"
+            bonus = 0.04 if use.get("manual") else 0.0
             ranked.append({
                 "name": nm,
                 "grid_cells": use["cells"],
-                "score": round(use["score"], 4),
+                "score": round(use["score"] + bonus, 4),
                 "gallery": use["path"],
                 "source": source,
                 "votes": votes_map.get(nm, 0),
+                "manual": bool(use.get("manual")),
             })
         ranked.sort(key=lambda x: -x["score"])
         results.append({"ok": True, "matches": ranked[:topk]})
@@ -879,10 +889,13 @@ def gallery(conn) -> dict[str, Any]:
     manifest = _load_manifest()
     img_by_name: dict[str, list[int]] = defaultdict(list)
     learn_names: set[str] = set()
+    manual_names: set[str] = set()
     for i, m in enumerate(manifest):
         img_by_name[_norm(m["name"])].append(i)
         if m.get("source") == "learn":
             learn_names.add(_norm(m["name"]))
+        if m.get("manual"):
+            manual_names.add(_norm(m["name"]))
     items = []
     for r in conn.execute(
         "SELECT id, name, grid_cells, value, current_value, source FROM catalog_items ORDER BY grid_cells, value DESC"
@@ -909,6 +922,7 @@ def gallery(conn) -> dict[str, Any]:
                 for i in imgs
             ],
             "has_learn": _norm(r["name"]) in learn_names,
+            "has_manual": _norm(r["name"]) in manual_names,
         })
     return {
         "items": items,

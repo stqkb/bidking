@@ -550,6 +550,15 @@ export default function CatalogPage() {
                         {g.has_learn && (
                           <span className="rounded bg-emerald-500/15 px-1.5 py-0.5 text-[10px] text-emerald-600">✓已学</span>
                         )}
+                        {g.has_manual && (
+                          <span
+                            className="rounded px-1.5 py-0.5 text-[10px]"
+                            style={{ background: "var(--accent-soft)", color: "var(--accent)" }}
+                            title="手动补录的漏检红品，视觉识别时优先匹配（多注意/加强）"
+                          >
+                            ✋手动
+                          </span>
+                        )}
                       </div>
                     </td>
                     <td className="pr-3">
