@@ -32,5 +32,12 @@ _*.py
 data/models/cnn_synth.npz
 data/models/cnn_synth.fp
 
+# 截图识别的临时裁剪样本（可随时重新生成，不随仓库传播）
+data/auction_crops/
+
+# 视觉识别特征缓存（26MB，可随时重建）
+data/crops_feats.npy
+data/crops_feats.meta
+
 # Vite 构建临时文件
 frontend/*.timestamp-*.mjs
