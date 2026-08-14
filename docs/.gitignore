@@ -1,0 +1,9 @@
+__pycache__/
+*.pyc
+.pytest_cache/
+backend/data/
+data/*.db
+data/models/
+data/synthetic/
+frontend/node_modules/
+frontend/dist/

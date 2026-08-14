@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="zh-CN" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>竞拍之王 · 红品估值助手</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script>
+      if (location.protocol === "file:") {
+        document.body.style.cssText =
+          "display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;background:#0b101d;color:#e2e8f0;font-family:system-ui,'Microsoft YaHei';text-align:center;";
+        document.body.innerHTML =
+          '<div><div style="font-size:42px;margin-bottom:12px">⚠️</div>' +
+          '<div style="font-size:20px;font-weight:700;margin-bottom:8px">请勿直接打开此文件</div>' +
+          '<div style="color:#94a3b8;line-height:1.8">请双击项目根目录的 <b>启动.bat</b> 启动程序<br>' +
+          '启动后浏览器会自动打开 <b>http://127.0.0.1:8000</b></div></div>';
+      }
+    </script>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

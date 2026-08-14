@@ -1,0 +1,29 @@
+# 依赖与构建产物（可重新安装/构建）
+node_modules/
+frontend/node_modules/
+frontend/dist/
+dist/
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# 运行时/日志
+*.log
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# 回收箱（已删除的学习图片，不随仓库传播）
+data/crops_trash/
+
+# 本地备份（如需要可手动单独上传）
+*.bak
+data/crops_manifest.json.slash_bak
+data/crops_manifest.bak_*.json
+data/crops_manifest.json.bak
+data/bidking.db.bak_*
+
+# 临时脚本
+_*.py

@@ -1,0 +1,1008 @@
+"""截图识别：按格数分组的藏品九宫格 -> 名称 + 价格 -> 图鉴匹配。"""
+from __future__ import annotations
+
+import json
+import math
+import os
+import re
+import shutil
+import time
+from datetime import datetime
+from pathlib import Path
+from typing import Any
+
+import numpy as np
+import cv2
+from PIL import Image
+from rapidocr_onnxruntime import RapidOCR
+
+from .config import AUCTION_DIR, OCR_FAILED_DIR, OCR_PROCESSED_DIR, SCAN_DIR
+from .db import db, json_dumps
+
+from .config import DATA_DIR
+
+_ocr: RapidOCR | None = None
+
+# GPU OCR：若安装了 onnxruntime-gpu，把 torch 自带的 CUDA 12 DLL 目录加入搜索路径，
+# 使 RapidOCR 能实际使用 CUDAExecutionProvider（无 GPU 时自动回退 CPU）。
+if os.environ.get("BIDKING_OCR_CPU") != "1":
+    try:
+        import onnxruntime as _ort
+
+        if "CUDAExecutionProvider" in _ort.get_available_providers():
+            import torch as _torch
+
+            _torch_lib = Path(_torch.__file__).resolve().parent / "lib"
+            if _torch_lib.exists():
+                os.environ["PATH"] = str(_torch_lib) + os.pathsep + os.environ.get("PATH", "")
+    except Exception:  # noqa: BLE001 无 GPU/无 torch 时保持纯 CPU
+        pass
+
+_SETTLE_KEYWORDS = ["总价值", "成交价", "收益", "拍得者"]
+_STOPWORDS = {
+    "拍得者", "收益", "当前已揭示总价值", "最终成交价", "已揭示", "总价值",
+    "成交价", "独白", "经过不懈努力", "成功达到", "段位", "福", "美",
+}
+
+
+def get_ocr() -> RapidOCR:
+    global _ocr
+    if _ocr is None:
+        _ocr = RapidOCR()
+    return _ocr
+
+
+def _ocr_run(img) -> list[dict[str, Any]]:
+    """直接对 ndarray/PIL 做 OCR（GPU），返回标准 box 列表，避免临时文件 IO。"""
+    result, _ = get_ocr()(img)
+    out = []
+    for box, text, conf in result or []:
+        if box is None or len(box) < 4:
+            continue
+        xs = [pt[0] for pt in box]
+        ys = [pt[1] for pt in box]
+        out.append({
+            "text": str(text).strip(),
+            "conf": float(conf or 0),
+            "cx": float(np.mean(xs)),
+            "cy": float(np.mean(ys)),
+            "x0": float(min(xs)),
+            "y0": float(min(ys)),
+            "x1": float(max(xs)),
+            "y1": float(max(ys)),
+        })
+    return out
+
+
+def parse_shape(name: str) -> tuple[int, int] | None:
+    m = re.match(r"^\s*(\d+)[×x*](\d+)\s*$", name)
+    if not m:
+        return None
+    return int(m.group(1)), int(m.group(2))
+
+
+def _norm_name(s: str) -> str:
+    return re.sub(r"[·…\s《》（）()\-—–]", "", s or "")
+
+
+def _is_price(t: str) -> bool:
+    return bool(re.fullmatch(r"[\d,]+(?:\.\d+)?", t.strip()))
+
+
+def _is_signed_price(t: str) -> bool:
+    return bool(re.fullmatch(r"[+-]?[\d,]+(?:\.\d+)?", t.strip()))
+
+
+def _parse_price(t: str) -> float:
+    return float(t.replace(",", "").replace("+", ""))
+
+
+def _trunc1(x: float) -> float:
+    """截断到 1 位小数（不四舍五入），与游戏显示规则一致。"""
+    return math.floor(x * 10) / 10
+
+
+def _inline_number(t: str) -> float | None:
+    """从文本内提取数字（如「盈亏差额+446,831」-> 446831；「-92,319」-> -92319）。"""
+    m = re.search(r"([+-]?[\d,]+(?:\.\d+)?)", t or "")
+    if not m:
+        return None
+    return _parse_price(m.group(1))
+
+
+def _full_texts(path: str, scale: int = 3) -> list[dict[str, Any]]:
+    """整图 OCR（传文件路径，保留 RapidOCR 内部预处理；动态缩放，GPU 加速）。"""
+    im = Image.open(path).convert("RGB")
+    w, h = im.size
+    # 动态缩放：大图不放大，小图放大，控制 OCR 输入尺寸在 ~2000px 内
+    if scale == 3:
+        long_side = max(w, h)
+        if long_side > 1600:
+            scale = 1
+        elif long_side > 900:
+            scale = 2
+    if scale != 1:
+        im = im.resize((w * scale, h * scale), Image.LANCZOS)
+    tmp = str(Path(os.environ.get("TEMP", ".")) / f"_ocr_tmp_{int(time.time()*1000)}_{id(im)}.png")
+    im.save(tmp)
+    try:
+        out = _ocr_run(tmp)
+    finally:
+        Path(tmp).unlink(missing_ok=True)
+    for b in out:
+        for k in ("cx", "cy", "x0", "y0", "x1", "y1"):
+            b[k] = b[k] / scale
+    return out
+
+
+def _nearest_number(boxes: list[dict[str, Any]], kw: dict[str, Any],
+                    align: str = "below") -> float | None:
+    """找关键词对应的数字：总价值=同行右侧，成交价/收益=同列下方。"""
+    best = None
+    best_d = 1e18
+    for b in boxes:
+        if not _is_signed_price(b["text"]):
+            continue
+        if align == "right":
+            if abs(b["cy"] - kw["cy"]) > 40 or b["cx"] < kw["cx"]:
+                continue
+            d = abs(b["cy"] - kw["cy"]) * 2 + (b["cx"] - kw["cx"])
+        else:
+            if b["cy"] < kw["cy"] - 20 or abs(b["cx"] - kw["cx"]) > 60:
+                continue
+            d = abs(b["cx"] - kw["cx"]) * 2 + (b["cy"] - kw["cy"])
+        if d < best_d:
+            best_d = d
+            best = b
+    return _parse_price(best["text"]) if best is not None else None
+
+
+def parse_settlement(boxes: list[dict[str, Any]]) -> dict[str, Any]:
+    out: dict[str, Any] = {}
+    for b in boxes:
+        t = b["text"]
+        if "总价值" in t and "总价值" not in out:
+            out["total_value"] = (
+                _nearest_number(boxes, b, align="right")
+                or _nearest_number(boxes, b, align="below")
+            )
+        elif "成交价" in t and "deal_price" not in out:
+            out["deal_price"] = _nearest_number(boxes, b, align="below")
+        elif "盈亏" in t and "profit" not in out:
+            inline = _inline_number(t)
+            if inline is not None:
+                out["profit"] = inline
+        elif t == "收益" and "profit" not in out:
+            out["profit"] = _nearest_number(boxes, b, align="below")
+    return out
+
+
+def _match_by_name(conn, name: str) -> list[dict[str, Any]]:
+    rows = conn.execute(
+        "SELECT name, grid_cells, value, current_value FROM catalog_items"
+    ).fetchall()
+    nn = _norm_name(name)
+    alias_target = _build_alias_map(conn).get(nn)
+    cands: list[dict[str, Any]] = []
+    for r in rows:
+        rn = _norm_name(r["name"])
+        exact = len(nn) > 0 and nn == rn
+        alias_hit = alias_target is not None and rn == _norm_name(alias_target)
+        ocr_prefix = len(nn) >= 2 and nn in rn and nn != rn
+        cat_prefix = len(rn) >= 2 and rn in nn and nn != rn
+        prefix = len(nn) >= 3 and len(rn) >= 3 and nn[:3] == rn[:3]
+        if exact or alias_hit:
+            score = 100
+        elif ocr_prefix:
+            score = 62 + 8 * len(nn) / max(len(rn), 1)
+        elif cat_prefix:
+            score = 42
+        elif prefix:
+            score = 46
+        else:
+            continue
+        cands.append({
+            "name": r["name"],
+            "grid_cells": r["grid_cells"],
+            "value": r["value"],
+            "current_value": r["current_value"],
+            "score": round(score, 1),
+            "price_ok": True,
+            "by_price": False,
+        })
+    cands = [c for c in cands if c["score"] >= 50]
+    cands.sort(key=lambda c: -c["score"])
+    return cands[:4]
+
+
+def _board_items(conn, boxes: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    # 合并同列上下紧邻的名称片段（如「吉星」+「高照」=「吉星高照」）
+    merged: list[dict[str, Any]] = []
+    for b in sorted(boxes, key=lambda x: (x["cy"], x["cx"])):
+        t = b["text"]
+        if len(t) < 2 or b["conf"] < 0.5 or _is_price(t) or _is_signed_price(t) or t in _STOPWORDS:
+            continue
+        if re.match(r"^[\d\.\-\+%]+$", t):
+            continue  # 纯数字/符号碎片（如 47.、5,262K 残留）
+        if re.match(r"^\d+[\u4e00-\u9fffA-Za-z]", t):
+            continue  # 序号+名称碎片（如 1德莱）属于噪音
+        if any(k in t for k in ("总价值", "成交价", "收益", "拍得者", "已揭示", "经过", "成功", "段位", "独白")):
+            continue
+        placed = False
+        for m in merged:
+            if abs(m["cx"] - b["cx"]) < 30 and 0 < b["cy"] - m["cy"] < 45:
+                m["text"] += t
+                m["cy"] = b["cy"]
+                m["y1"] = b["y1"]
+                m["x0"] = min(m["x0"], b["x0"])
+                m["x1"] = max(m["x1"], b["x1"])
+                placed = True
+                break
+        if not placed:
+            merged.append({
+                "text": t, "cx": b["cx"], "cy": b["cy"], "conf": b["conf"],
+                "x0": b["x0"], "y0": b["y0"], "x1": b["x1"], "y1": b["y1"],
+            })
+    items: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for b in sorted(merged, key=lambda x: (x["cy"], x["cx"])):
+        t = b["text"]
+        nn = _norm_name(t)
+        if not nn or nn in seen:
+            continue
+        seen.add(nn)
+        matches = _match_by_name(conn, t)
+        items.append({
+            "name": t,
+            "price": matches[0]["value"] if matches else 0,
+            "grid_cells": matches[0]["grid_cells"] if matches else 0,
+            "matches": matches,
+            "matched": bool(matches),
+            "name_box": {k: b[k] for k in ("x0", "y0", "x1", "y1")},
+        })
+    return items
+
+
+def _red_cell_ratio(rgb: np.ndarray, name_box: dict[str, Any]) -> float:
+    """红品格子背景占比：红品所在的格子除藏品图标外背景为深红/绛红。
+    取名称框正上方一小段（格子底部背景带）统计深红像素比例，
+    与白/绿/蓝/紫/金格子的背景区分开。"""
+    x0 = int(name_box.get("x0", 0))
+    y0 = int(name_box.get("y0", 0))
+    x1 = int(name_box.get("x1", 0))
+    y1 = int(name_box.get("y1", 0))
+    h = max(y1 - y0, 10)
+    H, W = rgb.shape[:2]
+    rx0 = max(0, x0 - int(0.9 * h))
+    rx1 = min(W, x1 + int(0.9 * h))
+    ry0 = max(0, y0 - int(0.6 * h))
+    ry1 = min(H, y0)
+    if ry1 <= ry0 or rx1 <= rx0:
+        return 0.0
+    reg = rgb[ry0:ry1, rx0:rx1].astype(int)
+    r = reg[..., 0]
+    g = reg[..., 1]
+    b = reg[..., 2]
+    m = (
+        (r - g >= 15) & (r - b >= 15)
+        & (r >= 55) & (r <= 150)
+        & (g >= 28) & (g <= 85)
+        & (b >= 28) & (b <= 75)
+    )
+    return float(m.mean())
+
+
+def process_auction_dir(conn, folder: Path) -> dict[str, Any]:
+    settlement: dict[str, Any] = {}
+    items: list[dict[str, Any]] = []
+    board_img: Path | None = None
+    for img in sorted(folder.glob("*")):
+        if img.suffix.lower() not in (".png", ".jpg", ".jpeg", ".bmp"):
+            continue
+        boxes = _full_texts(str(img))
+        s = parse_settlement(boxes)
+        if any(v is not None for v in s.values()):
+            for k, v in s.items():
+                if v is not None:
+                    settlement[k] = v
+        else:
+            board_img = img
+            items = _board_items(conn, boxes)
+    from . import vision
+
+    crops_dir = DATA_DIR / "auction_crops" / folder.name
+    crops_dir.mkdir(parents=True, exist_ok=True)
+    for i, it in enumerate(items):
+        nb = it.get("name_box") or {}
+        if not nb or board_img is None:
+            continue
+        pil = Image.open(board_img)
+        # 图标通常在名字上方（卡片式布局）
+        h = max(nb["y1"] - nb["y0"], 12)
+        cx = (nb["x0"] + nb["x1"]) / 2
+        x0 = max(0, int(cx - 1.6 * h))
+        x1 = min(pil.width, int(cx + 1.6 * h))
+        y0 = max(0, int(nb["y0"] - 3.0 * h))
+        y1 = min(pil.height, int(nb["y0"]))
+        crop = pil.crop((x0, y0, x1, y1))
+        cp = crops_dir / f"{i}.png"
+        crop.save(cp)
+        it["crop_path"] = str(cp)
+        try:
+            v = vision.match_crop(cp, topk=3)
+            it["visual"] = v.get("matches", [])
+        except Exception:  # noqa: BLE001
+            it["visual"] = []
+    return {
+        "settlement": settlement,
+        "items": items,
+        "red_count": len(items),
+        "total_cells": sum(it["grid_cells"] for it in items),
+    }
+
+
+def scan_auction_folder() -> dict[str, Any]:
+    now = datetime.now().isoformat(timespec="seconds")
+    added = 0
+    if not AUCTION_DIR.exists():
+        return {"added": 0}
+    with db() as conn:
+        existing = {
+            r["path"]: r["id"] for r in conn.execute(
+                "SELECT id, path, status FROM ocr_tasks WHERE kind='auction'"
+            ).fetchall()
+        }
+        for folder in sorted(AUCTION_DIR.iterdir()):
+            if not folder.is_dir() or folder.name == "已处理":
+                continue
+            imgs = [f for f in folder.iterdir()
+                    if f.suffix.lower() in (".png", ".jpg", ".jpeg", ".bmp")]
+            if not imgs:
+                continue
+            key = str(folder)
+            task_id = existing.get(key)
+            if task_id is not None:
+                with db() as conn2:
+                    st = conn2.execute(
+                        "SELECT status FROM ocr_tasks WHERE id=?", (task_id,)
+                    ).fetchone()["status"]
+                if st != "failed":
+                    continue
+            try:
+                result = process_auction_dir(conn, folder)
+                status = "pending"
+            except Exception as e:  # noqa: BLE001
+                result = {"error": str(e)}
+                status = "failed"
+            if task_id is None:
+                conn.execute(
+                    """INSERT INTO ocr_tasks(path, kind, shape, status, result_json, created_at, updated_at)
+                       VALUES (?,?,?,?,?,?,?)""",
+                    (key, "auction", "对局", status, json_dumps(result), now, now),
+                )
+            else:
+                conn.execute(
+                    "UPDATE ocr_tasks SET status=?, result_json=?, updated_at=? WHERE id=?",
+                    (status, json_dumps(result), now, task_id),
+                )
+            added += 1
+    return {"added": added}
+
+
+def _cluster_x(centers: list[float], img_w: int) -> list[list[int]]:
+    """按 x 中心一维聚类成列（自适应间距阈值）。"""
+    idx = sorted(range(len(centers)), key=lambda i: centers[i])
+    cols: list[list[int]] = []
+    gap = max(60.0, img_w * 0.12)
+    for i in idx:
+        if not cols or centers[i] - centers[cols[-1][-1]] > gap:
+            cols.append([i])
+        else:
+            cols[-1].append(i)
+    return cols
+
+
+def _ocr_texts(path: str) -> list[dict[str, Any]]:
+    """单图 OCR（传文件路径，保留 RapidOCR 内部预处理）。"""
+    return _ocr_run(path)
+
+
+def _pair_items(boxes: list[dict[str, Any]], img_w: int, img_h: int) -> list[dict[str, Any]]:
+    """把 OCR 文本按列分组后配对名称与价格；列内配不上的用全局「下方最近价格」兜底。"""
+    cols = _cluster_x([b["cx"] for b in boxes], img_w)
+    items: list[dict[str, Any]] = []
+    used: set[int] = set()
+    unpaired_names: list[int] = []
+    unpaired_prices: list[int] = []
+    for col in cols:
+        col_idx = sorted(col, key=lambda i: boxes[i]["cy"])
+        pending: int | None = None
+        for i in col_idx:
+            b = boxes[i]
+            if _is_price(b["text"]):
+                if pending is not None:
+                    items.append(_mk_item(boxes, pending, i))
+                    used.add(pending)
+                    used.add(i)
+                    pending = None
+                else:
+                    unpaired_prices.append(i)
+            else:
+                if pending is not None:
+                    unpaired_names.append(pending)
+                pending = i
+        if pending is not None:
+            unpaired_names.append(pending)
+    # 全局兜底：未配对的名称 -> 其下方最近的未配对价格
+    for ni in sorted(unpaired_names, key=lambda i: boxes[i]["cy"]):
+        if ni in used:
+            continue
+        cands = [
+            pi for pi in unpaired_prices
+            if pi not in used and boxes[pi]["cy"] > boxes[ni]["cy"]
+        ]
+        if cands:
+            pi = min(cands, key=lambda j: boxes[j]["cy"] - boxes[ni]["cy"])
+            items.append(_mk_item(boxes, ni, pi))
+            used.add(ni)
+            used.add(pi)
+    return items
+
+
+def _mk_item(boxes: list[dict[str, Any]], name_i: int, price_i: int) -> dict[str, Any]:
+    return {
+        "name": boxes[name_i]["text"],
+        "price": _parse_price(boxes[price_i]["text"]),
+        "y": boxes[name_i]["cy"],
+        "name_conf": boxes[name_i]["conf"],
+        "name_box": {k: boxes[name_i][k] for k in ("x0", "y0", "x1", "y1")},
+        "price_box": {k: boxes[price_i][k] for k in ("x0", "y0", "x1", "y1")},
+    }
+
+
+def _build_alias_map(conn) -> dict[str, str]:
+    """历史对局里的「游戏显示名/对应文档名 -> 图鉴名」别名映射。"""
+    cat: dict[str, str] = {}
+    for r in conn.execute("SELECT name FROM catalog_items").fetchall():
+        cat.setdefault(_norm_name(r["name"]), r["name"])
+    alias: dict[str, str] = {}
+    for r in conn.execute("SELECT items_json FROM game_records").fetchall():
+        for it in json.loads(r["items_json"] or "[]"):
+            nm = it.get("name")
+            doc = it.get("doc_name")
+            target = None
+            for key in (doc, nm):
+                nk = _norm_name(key)
+                if nk and nk in cat:
+                    target = cat[nk]
+                    break
+            if target:
+                if nm:
+                    alias.setdefault(_norm_name(nm), target)
+                if doc:
+                    alias.setdefault(_norm_name(doc), target)
+    return alias
+
+
+def _match_catalog(conn, name: str, price: float, cells: int) -> list[dict[str, Any]]:
+    rows = conn.execute(
+        "SELECT name, grid_cells, value, current_value FROM catalog_items"
+    ).fetchall()
+    nn = _norm_name(name)
+    alias_target = _build_alias_map(conn).get(nn)
+    candidates: list[dict[str, Any]] = []
+    for r in rows:
+        rn = _norm_name(r["name"])
+        exact = len(nn) > 0 and nn == rn
+        alias_hit = alias_target is not None and rn == _norm_name(alias_target)
+        ocr_prefix = len(nn) >= 2 and nn in rn and nn != rn  # OCR 截断（名短于图鉴）
+        cat_prefix = len(rn) >= 2 and rn in nn and nn != rn  # OCR 名比图鉴多字
+        prefix = len(nn) >= 3 and len(rn) >= 3 and nn[:3] == rn[:3]
+        if exact or alias_hit:
+            score = 100
+        elif ocr_prefix:
+            score = 62 + 8 * len(nn) / max(len(rn), 1)
+        elif cat_prefix:
+            score = 42  # 如「非洲之心」之于「非洲之心碎料」，弱化
+        elif prefix:
+            score = 46
+        else:
+            continue
+        if cells and r["grid_cells"] != cells:
+            score -= 25
+        rel = min(
+            abs(r["value"] - price) / max(price, 1),
+            abs((r["current_value"] or r["value"]) - price) / max(price, 1),
+        )
+        price_ok = rel <= 0.02
+        if price_ok:
+            score += 15
+        elif rel <= 0.05:
+            score += 5
+        candidates.append({
+            "name": r["name"],
+            "grid_cells": r["grid_cells"],
+            "value": r["value"],
+            "current_value": r["current_value"],
+            "score": round(score, 1),
+            "price_rel": round(rel, 3),
+            "price_ok": bool(price_ok),
+            "by_price": False,
+        })
+    candidates = [c for c in candidates if c["score"] >= 50]
+    if not candidates:
+        # 兜底：名称对不上时，按 格数 + 价格精确命中 推荐候选
+        for r in rows:
+            if cells and r["grid_cells"] != cells:
+                continue
+            for v in (r["value"], r["current_value"] or r["value"]):
+                if abs(v - price) / max(price, 1) <= 0.02:
+                    candidates.append({
+                        "name": r["name"],
+                        "grid_cells": r["grid_cells"],
+                        "value": r["value"],
+                        "current_value": r["current_value"],
+                        "score": 42.0,
+                        "price_rel": round(abs(v - price) / max(price, 1), 3),
+                        "price_ok": True,
+                        "by_price": True,
+                    })
+                    break
+        if not candidates:
+            return []
+    candidates.sort(key=lambda c: (-c["score"], c["price_rel"]))
+    best = candidates[0]["score"]
+    threshold = max(50, best - 15)
+    if not any(not c["by_price"] for c in candidates):
+        threshold = 42  # 纯按价格兜底命中的候选直接返回
+    return [c for c in candidates if c["score"] >= threshold][:6]
+
+
+def process_image(conn, path: Path, shape: tuple[int, int]) -> dict[str, Any]:
+    im = Image.open(path)
+    img_w, img_h = im.size
+    boxes = []
+    for attempt in range(3):
+        try:
+            boxes = _ocr_texts(str(path))
+            break
+        except Exception:  # noqa: BLE001
+            if attempt == 2:
+                raise
+            time.sleep(1.0)
+    items = _pair_items(boxes, img_w, img_h)
+    cells = shape[0] * shape[1]
+    out_items = []
+    for it in items:
+        matches = _match_catalog(conn, it["name"], it["price"], cells)
+        out_items.append({
+            "name": it["name"],
+            "price": it["price"],
+            "grid_cells": cells,
+            "name_box": it.get("name_box"),
+            "price_box": it.get("price_box"),
+            "matches": matches,
+            "matched": bool(matches),
+            "matched_by_price": bool(matches) and bool(matches[0].get("by_price")),
+            "price_mismatch": bool(matches) and not matches[0].get("price_ok"),
+            "price_suspect": it["price"] < 50000,
+            "name_conf": round(it["name_conf"], 2),
+        })
+    return {"items": out_items, "image_size": [img_w, img_h]}
+
+
+def process_capture(conn, image_path: str) -> dict[str, Any]:
+    """对一张截图（游戏窗口/剪贴板）直接做识别：OCR 名称+价格 -> 图鉴匹配 -> 生成待确认任务。
+    不知道格子数，匹配时不施加格数惩罚（cells=0）。"""
+    from pathlib import Path
+
+    p = Path(image_path)
+    if not p.exists():
+        return {"ok": False, "error": "图片不存在"}
+    im = Image.open(p)
+    img_w, img_h = im.size
+    boxes = _ocr_texts(str(p))
+    items = _pair_items(boxes, img_w, img_h)
+    out_items = []
+    for it in items:
+        matches = _match_catalog(conn, it["name"], it["price"], 0)
+        out_items.append({
+            "name": it["name"],
+            "price": it["price"],
+            "grid_cells": matches[0]["grid_cells"] if matches else 0,
+            "name_box": it.get("name_box"),
+            "price_box": it.get("price_box"),
+            "matches": matches,
+            "matched": bool(matches),
+            "price_suspect": it["price"] < 50000,
+            "name_conf": round(it["name_conf"], 2),
+        })
+    now = datetime.now().isoformat(timespec="seconds")
+    cur = conn.execute(
+        """INSERT INTO ocr_tasks(path, kind, shape, status, result_json, created_at, updated_at)
+           VALUES (?,?,?,?,?,?,?)""",
+        (str(p), "grid", "自动截图", "pending",
+         json_dumps({"items": out_items, "image_size": [img_w, img_h]}), now, now),
+    )
+    return {"ok": True, "task_id": cur.lastrowid, "items": len(out_items)}
+
+
+def recognize_single(conn, image_path: str) -> dict[str, Any]:
+    """单图识别：一张截图 -> 每件红品（名称/格数/价值/视觉候选）+ 成交价/总价值。"""
+    from pathlib import Path
+
+    p = Path(image_path)
+    if not p.exists():
+        return {"ok": False, "error": "图片不存在"}
+    boxes = _full_texts(str(p))
+    settlement = parse_settlement(boxes)
+    items = _board_items(conn, boxes)
+    pil = Image.open(p)
+    rgb = np.asarray(pil.convert("RGB")).astype(int)
+    H, W, _ = rgb.shape
+    R, G, B = rgb[..., 0], rgb[..., 1], rgb[..., 2]
+    crops_dir = DATA_DIR / "auction_crops" / "single"
+    crops_dir.mkdir(parents=True, exist_ok=True)
+    VISUAL_THRESHOLD = 0.85
+    for i, it in enumerate(items):
+        nb = it.get("name_box") or {}
+        red_ratio = _red_cell_ratio(rgb, nb) if nb else 0.0
+        it["red_ratio"] = round(red_ratio, 3)
+        if nb:
+            h = max(nb["y1"] - nb["y0"], 12)
+            cx = (nb["x0"] + nb["x1"]) / 2
+            x0 = max(0, int(cx - 1.6 * h))
+            x1 = min(pil.width, int(cx + 1.6 * h))
+            y0 = max(0, int(nb["y0"] - 3.0 * h))
+            y1 = min(pil.height, int(nb["y0"]))
+            crop = pil.crop((x0, y0, x1, y1))
+            cp = crops_dir / f"{i}.png"
+            crop.save(cp)
+            it["crop_path"] = str(cp)
+            try:
+                from . import vision
+                all_v = vision.match_crop(cp, topk=5).get("matches", [])
+                high = [x for x in all_v if x["score"] >= VISUAL_THRESHOLD]
+                it["visual"] = high[:1]
+                # 名称未匹配上图鉴时，用高置信视觉结果补格数/价值
+                if not it.get("grid_cells") and high:
+                    it["grid_cells"] = high[0]["grid_cells"]
+                    it["visual_source_cells"] = True
+            except Exception:  # noqa: BLE001
+                it["visual"] = []
+        else:
+            it["visual"] = []
+        # 红品判定：红色格子背景 + 名称能对上图鉴（或高置信视觉匹配），
+        # 排除 OCR 碎片（如单字「国」、符号残留「47.」）误报为红品。
+        it["is_red"] = red_ratio >= 0.30 and (it.get("matched") or bool(it.get("visual")))
+    red_items = [it for it in items if it.get("is_red")]
+    red_count = len(red_items)
+    total_cells = sum(int(it.get("grid_cells") or 0) for it in red_items)
+    red_value = sum(
+        float(it["matches"][0]["value"]) if it.get("matches") else float(it.get("price") or 0)
+        for it in red_items
+    )
+    return {
+        "ok": True,
+        "settlement": settlement,
+        "items": items,
+        "red_count": red_count,
+        "total_cells": total_cells,
+        "red_value": round(red_value, 0),
+    }
+
+
+def recognize_multi(conn, image_paths: list[str]) -> dict[str, Any]:
+    """多图合并识别：对局图与结算图可能分开存放。
+    每张图独立走 recognize_single，藏品并集去重、结算字段跨图合并，
+    输出统一的 红品件数/格数/价值/成交价/总价值。"""
+    if not image_paths:
+        return {"ok": False, "error": "未提供图片"}
+    # 多图并行识别（GPU 下每张图独立推理，线程池加速）
+    from concurrent.futures import ThreadPoolExecutor
+
+    def _run(p: str) -> dict[str, Any]:
+        try:
+            # SQLite 连接不可跨线程：每张图用独立连接
+            with db() as tconn:
+                return recognize_single(tconn, p)
+        except Exception as e:  # noqa: BLE001
+            return {"ok": False, "error": str(e)}
+
+    with ThreadPoolExecutor(max_workers=min(4, max(1, len(image_paths)))) as ex:
+        results = list(ex.map(_run, image_paths))
+    per_image: list[dict[str, Any]] = []
+    merged_items: list[dict[str, Any]] = []
+    settlement: dict[str, Any] = {}
+    seen_names: set[str] = set()
+    errors: list[str] = []
+    for p, r in zip(image_paths, results):
+        if not r.get("ok"):
+            errors.append(f"{Path(p).name}: {r.get('error', '识别失败')}")
+            continue
+        per_image.append({
+            "path": p,
+            "name": Path(p).name,
+            "settlement": r.get("settlement") or {},
+            "items": r.get("items") or [],
+            "red_count": r.get("red_count", 0),
+            "total_cells": r.get("total_cells", 0),
+            "red_value": r.get("red_value", 0),
+        })
+        for k, v in (r.get("settlement") or {}).items():
+            if v is not None and settlement.get(k) is None:
+                settlement[k] = v
+        for it in r.get("items") or []:
+            if not it.get("is_red"):
+                continue
+            key = _norm_name(it.get("name") or "")
+            if not key or key in seen_names:
+                continue
+            seen_names.add(key)
+            it = dict(it)
+            it["source_image"] = Path(p).name
+            merged_items.append(it)
+    red_count = len(merged_items)
+    total_cells = sum(int(it.get("grid_cells") or 0) for it in merged_items)
+    red_value = sum(
+        float(it["matches"][0]["value"]) if it.get("matches") else float(it.get("price") or 0)
+        for it in merged_items
+    )
+    return {
+        "ok": True,
+        "settlement": settlement,
+        "items": merged_items,
+        "per_image": per_image,
+        "red_count": red_count,
+        "total_cells": total_cells,
+        "red_value": round(red_value, 0),
+        "errors": errors,
+        "image_count": len(per_image),
+    }
+
+
+def save_multi_record(conn, image_paths: list[str]) -> dict[str, Any]:
+    """多图（分割图）识别后直接保存为一条历史对局记录，供模型训练。
+    保存字段与估值引擎/训练端对齐：
+      - items_json: 每件红品 name / grid_cells / trade_price（交易行价，引擎读取 trade_price）
+      - red_count / red_grids / red_avg / red_value / full_value / deal_price / profit
+    红品并集去重、结算字段跨图合并。"""
+    res = recognize_multi(conn, image_paths)
+    if not res.get("ok"):
+        return res
+    items = res.get("items") or []
+    settlement = res.get("settlement") or {}
+    now = datetime.now().isoformat(timespec="seconds")
+    game_no = conn.execute(
+        "SELECT COALESCE(MAX(game_no),0)+1 m FROM game_records"
+    ).fetchone()["m"]
+    red_count = len(items)
+    cells_list = [int(it.get("grid_cells") or 0) for it in items]
+    red_grids = sum(cells_list)
+    red_avg = _trunc1(red_grids / red_count) if red_count else None
+    combo = "+".join(str(c) for c in sorted(cells_list)) if cells_list else None
+    def _item_price(it: dict[str, Any]) -> float:
+        """红品价值：优先交易行价(current_value)，否则系统价(value)。"""
+        m = (it.get("matches") or [{}])[0]
+        return float(m.get("current_value") or m.get("value") or it.get("price") or 0)
+
+    red_value = round(sum(_item_price(it) for it in items), 0)
+    full_value = settlement.get("total_value")
+    deal_price = settlement.get("deal_price")
+    profit = settlement.get("profit")
+    saved_items = [{
+        "name": it.get("name"),
+        "grid_cells": it.get("grid_cells"),
+        "trade_price": _item_price(it),
+        "source_image": it.get("source_image"),
+    } for it in items]
+    conn.execute(
+        """INSERT INTO game_records
+           (game_no, grid_combo, red_count, red_grids, red_avg, red_value,
+            full_value, deal_price, profit, items_json)
+           VALUES (?,?,?,?,?,?,?,?,?,?)""",
+        (game_no, combo, red_count if red_count else None, red_grids or None,
+         red_avg, red_value or None, full_value, deal_price, profit,
+         json_dumps(saved_items)),
+    )
+    return {
+        **res,
+        "game_no": game_no,
+        "saved": True,
+        "saved_at": now,
+        "saved_items": saved_items,
+    }
+
+
+def _iter_images() -> list[Path]:
+    if not SCAN_DIR.exists():
+        return []
+    skip = {OCR_PROCESSED_DIR.name, OCR_FAILED_DIR.name}
+    return [
+        p for p in SCAN_DIR.rglob("*")
+        if p.is_file() and p.suffix.lower() in {".png", ".jpg", ".jpeg", ".bmp", ".webp"}
+        and not any(part in skip for part in p.parts)
+    ]
+
+
+def scan_folder() -> dict[str, Any]:
+    now = datetime.now().isoformat(timespec="seconds")
+    added = 0
+    failed = 0
+    with db() as conn:
+        existing = {
+            r["path"]: r["id"] for r in conn.execute(
+                "SELECT id, path, status FROM ocr_tasks"
+            ).fetchall()
+        }
+        for path in _iter_images():
+            task_id = existing.get(str(path))
+            folder = path.parent.name
+            if task_id is not None:
+                with db() as conn2:
+                    st = conn2.execute(
+                        "SELECT status FROM ocr_tasks WHERE id=?", (task_id,)
+                    ).fetchone()["status"]
+                if st != "failed":
+                    continue
+            shape = parse_shape(folder)
+            if shape is None:
+                continue
+            try:
+                result = process_image(conn, path, shape)
+                status = "pending"
+            except Exception as e:  # noqa: BLE001
+                result = {"error": str(e)}
+                status = "failed"
+                failed += 1
+            if task_id is None:
+                conn.execute(
+                    """INSERT INTO ocr_tasks(path, kind, shape, status, result_json, created_at, updated_at)
+                       VALUES (?,?,?,?,?,?,?)""",
+                    (str(path), "grid", f"{shape[0]}×{shape[1]}", status, json_dumps(result), now, now),
+                )
+            else:
+                conn.execute(
+                    "UPDATE ocr_tasks SET status=?, result_json=?, updated_at=? WHERE id=?",
+                    (status, json_dumps(result), now, task_id),
+                )
+            added += 1
+    return {"added": added, "failed": failed, "total": added + failed}
+
+
+def list_tasks() -> list[dict[str, Any]]:
+    with db() as conn:
+        rows = conn.execute(
+            "SELECT * FROM ocr_tasks ORDER BY id DESC"
+        ).fetchall()
+    out = []
+    for r in rows:
+        d = dict(r)
+        d["result"] = json.loads(d.pop("result_json") or "{}")
+        out.append(d)
+    return out
+
+
+def confirm_task(task_id: int, items: list[dict[str, Any]],
+                 settlement: dict[str, Any] | None = None) -> dict[str, Any]:
+    """确认识别结果：价格以图像识别为准——
+    图鉴中已有同名条目则覆盖原价（现价按 ×1.15 同步），否则按原价新增；
+    标记任务完成并归档图片。"""
+    now = datetime.now().isoformat(timespec="seconds")
+    added = 0
+    updated = 0
+    settlement = settlement or {}
+    with db() as conn:
+        row = conn.execute("SELECT * FROM ocr_tasks WHERE id=?", (task_id,)).fetchone()
+        if row is None:
+            return {"ok": False, "error": "任务不存在"}
+        if row["status"] == "confirmed":
+            return {"ok": False, "error": "该任务已确认"}
+        if row["kind"] == "auction":
+            game_no = conn.execute(
+                "SELECT COALESCE(MAX(game_no),0)+1 m FROM game_records"
+            ).fetchone()["m"]
+            red_count = len(items)
+            cells_list = [int(it.get("grid_cells") or 0) for it in items]
+            red_grids = sum(cells_list)
+            red_avg = _trunc1(red_grids / red_count) if red_count else None
+            combo = "+".join(str(c) for c in sorted(cells_list)) if cells_list else None
+            red_value = round(sum(float(it.get("price") or 0) for it in items), 0)
+            full_value = settlement.get("total_value")
+            deal_price = settlement.get("deal_price")
+            profit = settlement.get("profit")
+            conn.execute(
+                """INSERT INTO game_records
+                   (game_no, grid_combo, red_count, red_grids, red_avg, red_value,
+                    full_value, deal_price, profit, items_json)
+                   VALUES (?,?,?,?,?,?,?,?,?,?)""",
+                (game_no, combo, red_count if red_count else None, red_grids or None,
+                 red_avg, red_value or None, full_value, deal_price, profit, json_dumps(items)),
+            )
+            for it in items:
+                conn.execute(
+                    """INSERT INTO ocr_samples(task_id, name, grid_cells, price, matched_name, created_at)
+                       VALUES (?,?,?,?,?,?)""",
+                    (task_id, it.get("name"), int(it.get("grid_cells") or 0),
+                     float(it.get("price") or 0), "", now),
+                )
+                if it.get("crop_path") and Path(it["crop_path"]).exists():
+                    from . import vision
+                    vision.add_crop(
+                        it.get("name") or "", int(it.get("grid_cells") or 0),
+                        Image.open(it["crop_path"]),
+                    )
+            conn.execute(
+                "UPDATE ocr_tasks SET status='confirmed', updated_at=? WHERE id=?",
+                (now, task_id),
+            )
+            _archive_auction(row["path"], task_id)
+            return {"ok": True, "game_no": game_no}
+        for it in items:
+            name = (it.get("name") or "").strip()
+            if not name:
+                continue
+            price = it.get("price")
+            if not price or price <= 0:
+                continue
+            cells = int(it.get("grid_cells") or 0)
+            exists = conn.execute(
+                "SELECT id, value, current_value FROM catalog_items WHERE name=?", (name,)
+            ).fetchone()
+            if exists is not None:
+                conn.execute(
+                    """UPDATE catalog_items
+                       SET value=?, current_value=? WHERE id=?""",
+                    (float(price), round(float(price) * 1.15, 0), exists["id"]),
+                )
+                updated += 1
+                matched = name
+            else:
+                conn.execute(
+                    """INSERT INTO catalog_items(name, grid_cells, value, current_value, source)
+                       VALUES (?,?,?,NULL,'ocr')""",
+                    (name, cells, float(price)),
+                )
+                matched = ""
+                added += 1
+            conn.execute(
+                """INSERT INTO ocr_samples(task_id, name, grid_cells, price, matched_name, created_at)
+                   VALUES (?,?,?,?,?,?)""",
+                (task_id, name, cells, float(price), matched, now),
+            )
+        conn.execute(
+            "UPDATE ocr_tasks SET status='confirmed', updated_at=? WHERE id=?",
+            (now, task_id),
+        )
+    # 归档图片到 已处理\<shape>\
+    try:
+        src = Path(row["path"])
+        if src.exists():
+            dest_dir = OCR_PROCESSED_DIR / row["shape"] if row["shape"] else OCR_PROCESSED_DIR
+            dest_dir.mkdir(parents=True, exist_ok=True)
+            shutil.move(str(src), str(dest_dir / src.name))
+    except Exception:  # noqa: BLE001
+        pass
+    return {"ok": True, "added_catalog": added, "updated_catalog": updated}
+
+
+def _archive_auction(folder_path: str, task_id: int) -> None:
+    from .config import AUCTION_DONE_DIR
+
+    try:
+        src = Path(folder_path)
+        if not src.is_dir():
+            return
+        dest = AUCTION_DONE_DIR / str(task_id)
+        dest.mkdir(parents=True, exist_ok=True)
+        for f in src.iterdir():
+            if f.is_file():
+                shutil.move(str(f), str(dest / f.name))
+    except Exception:  # noqa: BLE001
+        pass
+
+
+def delete_task(task_id: int) -> dict[str, Any]:
+    with db() as conn:
+        conn.execute("DELETE FROM ocr_tasks WHERE id=?", (task_id,))
+    return {"ok": True}

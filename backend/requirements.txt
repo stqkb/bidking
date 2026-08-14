@@ -1,0 +1,13 @@
+fastapi
+uvicorn
+pydantic
+openpyxl
+numpy
+pandas
+scikit-learn
+scipy
+joblib
+torch
+rapidocr_onnxruntime
+Pillow
+torchvision
