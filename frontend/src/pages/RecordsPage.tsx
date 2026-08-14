@@ -211,7 +211,7 @@ export default function RecordsPage() {
                           {g.items.map((it, i) => (
                             <span
                               key={i}
-                              className="rounded-lg border border-ink-700 bg-ink-850 px-2.5 py-1 text-xs text-slate-600"
+                              className="rounded-lg border border-ink-700 bg-ink-850 px-2.5 py-1 text-xs text-slate-200"
                             >
                               {it.name} · {it.grid_cells}格 · {fmtMoney(it.trade_price ?? it.sys_price ?? 0)}
                             </span>

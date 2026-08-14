@@ -803,7 +803,7 @@ export default function EstimatePage() {
                 </button>
                 <div className="min-w-0 space-y-1.5">
                   {(pickedTask.result?.items ?? []).slice(0, 4).map((it, i) => (
-                    <div key={i} className="text-xs text-slate-500">
+                    <div key={i} className="text-xs text-slate-200">
                       {it.name} · {it.price.toLocaleString()} · {it.grid_cells}格
                     </div>
                   ))}

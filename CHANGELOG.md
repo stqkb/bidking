@@ -38,6 +38,7 @@
 - OCR 模块性能优化：① 图鉴名称匹配合并 `match_by_name`/`match_catalog` 共享评分核心（`_base_score`），并新增归一化名称索引缓存（`KEY_CATALOG_INDEX`），消除重复归一化与重复逻辑；② `_full_texts` 不再写临时文件，改为内存 ndarray 直传 RapidOCR；③ 新增识别结果 LRU 缓存（路径+mtime+大小+缩放档位，命中约 0.04s）；④ `process_auction_dir` 多图并行 OCR（线程池）；⑤ 修复多图并行时裁剪样本文件互相覆盖的隐患（文件名加图名前缀）。
 - 标注校准「手动添加漏检红品」：下拉文字选择改为**图片网格选择**（按格数筛选后显示藏品缩略图+名称+格数+价格，点击即选中），并新增排序控件（名称 A-Z / 价值升序 / 价值降序）。
 - ML/CNN 模型与视觉识别性能优化：① ResNet50 特征缓存改为**增量更新**（`crops_feats.meta` 记录源文件签名，manifest 增删少量条目时只编码新增/变更图，命中旧特征直接复用，无变化不重写盘）；指纹含文件 size+mtime 防同名替换；② ResNet50 增加 **TorchScript trace 缓存**（英文 temp 路径，中文路径下 jit.save 会失败；免每次启动构造 torchvision 模型）；③ `match_crop`/`match_crops` 的 votes 统计改为单次遍历（去 O(n·k) 嵌套）；④ `_encode` 去重复 RGB 转换；⑤ ML `build_dataset` 与 LOOCV/chrono/校准评估按数据指纹缓存（game_records+catalog_items 未变时复用，避免每次重训全量重算评估）；⑥ CNN 合成数据（40000 样本）指纹磁盘缓存，生成 2.15s → 0.045s。
+- 修复深色主题下「藏品名称」文字颜色过淡：图鉴管理卡片/列表名称、标注校准图片库名称、历史复盘藏品明细、新对局估值候选项等由深灰（slate-500/600/700）统一调亮为浅色（slate-100/200/300）。
 
 ---
 

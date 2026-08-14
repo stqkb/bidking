@@ -499,7 +499,7 @@ export default function CatalogPage() {
                   暂无图像
                 </div>
               )}
-              <div className="mt-1.5 truncate text-xs font-medium text-slate-700" title={g.name}>
+              <div className="mt-1.5 truncate text-xs font-medium text-slate-100" title={g.name}>
                 {g.name}
               </div>
               <div className="mt-0.5 flex items-center justify-between text-[11px] text-slate-500">
@@ -536,10 +536,10 @@ export default function CatalogPage() {
               </thead>
               <tbody>
                 {filtered.map((g) => (
-                  <tr key={g.cat_id} className="border-t border-ink-700/60 align-top text-slate-600">
+                  <tr key={g.cat_id} className="border-t border-ink-700/60 align-top text-slate-300">
                     <td className="py-2 pr-3">
                       <div className="flex flex-wrap items-center gap-1.5">
-                        <button className="font-medium text-slate-700 hover:text-indigo-600" onClick={() => setDetail(g)}>{g.name}</button>
+                        <button className="font-medium text-slate-100 hover:text-indigo-400" onClick={() => setDetail(g)}>{g.name}</button>
                         {g.source === "ocr" && (
                           <span className="rounded bg-amber-500/15 px-1.5 py-0.5 text-[10px] text-amber-600">OCR新增</span>
                         )}

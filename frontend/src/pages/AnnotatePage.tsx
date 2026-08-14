@@ -561,7 +561,7 @@ export default function AnnotatePage() {
               <button
                 key={img.path}
                 className={`group relative flex items-center gap-1.5 rounded-lg border px-2 py-1 text-[11px] transition ${
-                  i === activeIdx ? "border-indigo-500/60 bg-indigo-500/10 text-indigo-600" : "border-ink-700 text-slate-400 hover:border-ink-500"
+                  i === activeIdx ? "border-indigo-500/60 bg-indigo-500/10 text-indigo-400" : "border-ink-700 text-slate-200 hover:border-ink-500"
                 }`}
                 onClick={() => switchImage(i)}
               >
