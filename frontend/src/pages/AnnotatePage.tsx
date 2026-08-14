@@ -441,8 +441,14 @@ export default function AnnotatePage() {
           won,
         }),
       });
-      const j = await r.json();
-      if (j.ok) {
+      const text = await r.text();
+      let j: any = null;
+      try {
+        j = JSON.parse(text);
+      } catch {
+        /* 后端可能返回非 JSON（如 500 页面） */
+      }
+      if (j && j.ok) {
         const tip =
           j.profit_ok === 0
             ? "，⚠️ 收益核验不通过（收益 ≠ 总价值−成交价），已保存但未进入模型训练"
@@ -456,8 +462,10 @@ export default function AnnotatePage() {
         // 保存成功：清空本局所有图片与汇总，准备下一局
         resetAll();
       } else {
-        setMsg(j.detail ?? "保存失败");
+        setMsg((j && (j.detail || j.error)) || `保存失败（HTTP ${r.status}，响应非 JSON）`);
       }
+    } catch (e) {
+      setMsg(`保存失败：${e instanceof Error ? e.message : String(e)}`);
     } finally {
       setSummarySaving(false);
     }
