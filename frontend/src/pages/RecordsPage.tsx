@@ -407,14 +407,17 @@ export default function RecordsPage() {
                   style={{ borderColor: "var(--accent)", background: "var(--bg-primary)" }}
                 />
                 <div
-                  onClick={() => setOpen(open === g.game_no ? null : g.game_no)}
-                  className="cursor-pointer rounded-lg border p-4 transition hover:bg-[var(--bg-tertiary)]"
+                  className="rounded-lg border p-4 transition"
                   style={{
                     borderColor: g.profit_ok === 0 ? "rgba(154,74,74,0.5)" : "var(--border-subtle)",
                     background: "var(--bg-secondary)",
                   }}
                 >
-                  <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
+                  <div
+                    onClick={() => setOpen(open === g.game_no ? null : g.game_no)}
+                    className="flex cursor-pointer flex-wrap items-center gap-x-6 gap-y-2 transition hover:opacity-80"
+                    title={open === g.game_no ? "点击收起" : "点击展开明细"}
+                  >
                     <div className="min-w-[56px]">
                       <div className="text-[11px] uppercase tracking-[0.05em] text-slate-500">局号</div>
                       <div className="font-mono text-lg font-medium" style={{ color: "var(--text-primary)" }}>
