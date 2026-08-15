@@ -69,6 +69,11 @@ export interface EstimateResp {
     uncertainty_ratio: number;
     worst_case_profit: number;
     expected_profit: number;
+    /** 收益展示（/api/estimate 后续新增；未返回时前端预留位置不显示） */
+    profit?: number | null;        // 预计收益
+    profit_rate?: number | null;   // 收益率（百分比数值，如 11.1；亦可传 0~1 小数，前端自动 ×100）
+    profit_p10?: number | null;    // 最差收益（p10）
+    profit_p90?: number | null;    // 最好收益（p90）
   };
   candidates: Candidate[];
   similar_games: SimilarGame[];
