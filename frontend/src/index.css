@@ -279,6 +279,39 @@ select.input {
   opacity: 0.5;
 }
 
+/* ── 强调按钮（亮金，用于主行动如「一键归档」） ── */
+.btn-accent {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 20px;
+  border: none;
+  border-radius: var(--radius-md);
+  background: linear-gradient(180deg, var(--gold-400), var(--gold-500));
+  color: var(--text-inverse);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: filter var(--dur-fast) var(--ease-out),
+              transform var(--dur-fast) var(--ease-out),
+              box-shadow var(--dur-fast) var(--ease-out);
+}
+.btn-accent:hover:not(:disabled) {
+  filter: brightness(1.08);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+.btn-accent:active:not(:disabled) {
+  filter: brightness(0.96);
+  transform: translateY(0);
+}
+.btn-accent:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
 /* ════════════════════════════════════════════════════════════
    动画关键帧
    ════════════════════════════════════════════════════════════ */

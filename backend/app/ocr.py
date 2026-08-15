@@ -30,6 +30,83 @@ from .config import DATA_DIR
 _ocr = None  # RapidOCR 惰性实例化
 _GPU_DLLS_DONE = False
 
+# ══════════════════ 颜色参考（区分总价值/成交价 + 红品背景）═════════════════
+_COLOR_REFS = None  # 惰性加载：{blue:{h,s,v,...}, yellow:{...}, red:{s,v,...}}
+
+
+def _load_color_refs() -> dict:
+    """读取 颜色图片/ 参考图，提取蓝/黄文字与红背景的 HSV 范围（惰性 + 缓存）。
+    - 字体颜色/总价值 -> 蓝色文字（标记 total_value）
+    - 字体颜色/成交价 -> 黄色文字（标记 deal_price）
+    - 红品背景图     -> 红品格子背景的 HSV 范围（替代 _red_cell_ratio 硬编码阈值）
+    若无参考图则返回空 dict，调用方回退到原逻辑。"""
+    global _COLOR_REFS
+    if _COLOR_REFS is not None:
+        return _COLOR_REFS
+    base = Path(__file__).resolve().parents[2] / "颜色图片"
+
+    def _hue_stats(folder: str):
+        fdir = base / folder
+        if not fdir.exists():
+            return None
+        Hs, Ss, Vs = [], [], []
+        for f in sorted(fdir.rglob("*.png")):
+            try:
+                arr = np.asarray(Image.open(f).convert("RGB")).astype(np.uint8)
+            except Exception:
+                continue
+            hsv = cv2.cvtColor(arr, cv2.COLOR_RGB2HSV)
+            H, S, V = hsv[..., 0].astype(int), hsv[..., 1].astype(int), hsv[..., 2].astype(int)
+            m = (S >= 60) & (V >= 30)  # 彩色文字/背景像素
+            Hs.extend(H[m].tolist()); Ss.extend(S[m].tolist()); Vs.extend(V[m].tolist())
+        if not Hs:
+            return None
+        return (int(np.median(Hs)), int(np.median(Ss)), int(np.median(Vs)))
+
+    blue = _hue_stats("字体颜色/总价值")
+    yellow = _hue_stats("字体颜色/成交价")
+    red = _hue_stats("红品背景图")
+    _COLOR_REFS = {
+        "blue": ({"h": blue[0], "s": blue[1], "v": blue[2],
+                  "h_margin": 14, "s_margin": 34, "v_margin": 90} if blue else None),
+        "yellow": ({"h": yellow[0], "s": yellow[1], "v": yellow[2],
+                    "h_margin": 14, "s_margin": 34, "v_margin": 90} if yellow else None),
+        "red": ({"s": red[1], "v": red[2], "s_margin": 40, "v_margin": 28, "h_band": 14}
+                if red else None),
+    }
+    return _COLOR_REFS
+
+
+def _get_color_refs() -> dict:
+    return _load_color_refs() or {}
+
+
+def _text_color_of_region(rgb: np.ndarray, box: dict, refs: dict) -> str:
+    """判断文字框内数字的主色调：blue(蓝=总价值) / yellow(黄=成交价) / neutral。
+    裁剪框周围 2px，统计蓝/黄文字像素占比（彩色文字对暗背景），多数者胜。"""
+    x0 = max(0, int(box["x0"]) - 2); y0 = max(0, int(box["y0"]) - 2)
+    x1 = min(rgb.shape[1], int(box["x1"]) + 2); y1 = min(rgb.shape[0], int(box["y1"]) + 2)
+    if x1 <= x0 or y1 <= y0:
+        return "neutral"
+    reg = rgb[y0:y1, x0:x1].astype(np.uint8)
+    hsv = cv2.cvtColor(reg, cv2.COLOR_RGB2HSV)
+    H = hsv[..., 0].astype(int); S = hsv[..., 1].astype(int); V = hsv[..., 2].astype(int)
+    area = (x1 - x0) * (y1 - y0)
+    nb = ny = 0
+    blu = refs.get("blue"); yel = refs.get("yellow")
+    if blu:
+        s_min = max(70, blu["s"] - blu["s_margin"]); v_min = max(120, blu["v"] - blu["v_margin"])
+        m = (S >= s_min) & (V >= v_min) & (H >= blu["h"] - blu["h_margin"]) & (H <= blu["h"] + blu["h_margin"])
+        nb = int(m.sum())
+    if yel:
+        s_min = max(70, yel["s"] - yel["s_margin"]); v_min = max(120, yel["v"] - yel["v_margin"])
+        m = (S >= s_min) & (V >= v_min) & (H >= yel["h"] - yel["h_margin"]) & (H <= yel["h"] + yel["h_margin"])
+        ny = int(m.sum())
+    # 彩色文字像素占比过低 -> 中性（灰字/背景）
+    if nb + ny < max(10, 0.03 * area):
+        return "neutral"
+    return "blue" if nb >= ny else "yellow"
+
 
 def _ensure_gpu_dlls() -> None:
     """GPU OCR：若安装了 onnxruntime-gpu，把 torch 自带的 CUDA 12 DLL 目录加入搜索路径，
@@ -104,12 +181,16 @@ def parse_shape(name: str) -> tuple[int, int] | None:
     return int(m.group(1)), int(m.group(2))
 
 
+# 数字分隔符：同时接受半角逗号与全角逗号（OCR 常把 盈亏差额+94，830 的逗号识别为全角）
+_NUM = r"[\d，,]+(?:\.\d+)?"
+
+
 def _is_price(t: str) -> bool:
-    return bool(re.fullmatch(r"[\d,]+(?:\.\d+)?", t.strip()))
+    return bool(re.fullmatch(_NUM, t.strip()))
 
 
 def _is_signed_price(t: str) -> bool:
-    return bool(re.fullmatch(r"[+-]?[\d,]+(?:\.\d+)?", t.strip()))
+    return bool(re.fullmatch(r"[+-]?" + _NUM, t.strip()))
 
 
 def _check_profit_ok(full_value, deal_price, profit) -> int:
@@ -125,7 +206,7 @@ def _check_profit_ok(full_value, deal_price, profit) -> int:
 
 
 def _parse_price(t: str) -> float:
-    return float(t.replace(",", "").replace("+", ""))
+    return float(t.replace(",", "").replace("，", "").replace("+", ""))
 
 
 def _trunc1(x: float) -> float:
@@ -134,8 +215,8 @@ def _trunc1(x: float) -> float:
 
 
 def _inline_number(t: str) -> float | None:
-    """从文本内提取数字（如「盈亏差额+446,831」-> 446831；「-92,319」-> -92319）。"""
-    m = re.search(r"([+-]?[\d,]+(?:\.\d+)?)", t or "")
+    """从文本内提取数字（如「盈亏差额+446,831」-> 446831；「盈亏差额+94，830」全角逗号 -> 94830）。"""
+    m = re.search(r"([+-]?" + _NUM + ")", t or "")
     if not m:
         return None
     return _parse_price(m.group(1))
@@ -210,23 +291,59 @@ def _nearest_number(boxes: list[dict[str, Any]], kw: dict[str, Any],
     return _parse_price(best["text"]) if best is not None else None
 
 
-def parse_settlement(boxes: list[dict[str, Any]]) -> dict[str, Any]:
+def parse_settlement(boxes: list[dict[str, Any]], rgb: np.ndarray | None = None) -> dict[str, Any]:
+    """解析结算区：总价值 / 成交价 / 收益。
+    颜色优先：蓝色数字=总价值、黄色数字=成交价（来自 颜色图片 参考），按颜色标签
+    辅助定位结算数字；颜色缺失/不确定时回退到位置关联（原逻辑）。"""
     out: dict[str, Any] = {}
+    refs = _get_color_refs() if rgb is not None else {}
+    # 颜色分类：蓝=总价值候选数字，黄=成交价候选数字
+    blue_boxes: list[dict[str, Any]] = []
+    yellow_boxes: list[dict[str, Any]] = []
+    if rgb is not None:
+        for b in boxes:
+            if _is_signed_price(b["text"]):
+                c = _text_color_of_region(rgb, b, refs)
+                if c == "blue":
+                    blue_boxes.append(b)
+                elif c == "yellow":
+                    yellow_boxes.append(b)
+
+    def _nearest_color(cands: list[dict[str, Any]], kw: dict[str, Any], max_d: int = 260) -> float | None:
+        """取距关键字最近的同色数字（颜色优先于位置）。"""
+        if not cands:
+            return None
+        best = None; bd = 1e18
+        for b in cands:
+            d = abs(b["cy"] - kw["cy"]) + abs(b["cx"] - kw["cx"])
+            if d < bd:
+                bd = d; best = b
+        return _parse_price(best["text"]) if bd <= max_d else None
+
     for b in boxes:
         t = b["text"]
-        if "总价值" in t and "总价值" not in out:
+        if "总价值" in t and "total_value" not in out:
             out["total_value"] = (
-                _nearest_number(boxes, b, align="right")
+                _nearest_color(blue_boxes, b)
+                or _nearest_number(boxes, b, align="right")
                 or _nearest_number(boxes, b, align="below")
             )
         elif "成交价" in t and "deal_price" not in out:
-            out["deal_price"] = _nearest_number(boxes, b, align="below")
+            out["deal_price"] = (
+                _nearest_color(yellow_boxes, b)
+                or _nearest_number(boxes, b, align="below")
+            )
         elif "盈亏" in t and "profit" not in out:
             inline = _inline_number(t)
             if inline is not None:
                 out["profit"] = inline
         elif t == "收益" and "profit" not in out:
             out["profit"] = _nearest_number(boxes, b, align="below")
+    # 颜色兜底：关键字漏识别时，直接用唯一的蓝/黄数字（取最靠上的，结算区总价值在上）
+    if "total_value" not in out and blue_boxes:
+        out["total_value"] = _parse_price(min(blue_boxes, key=lambda b: b["cy"])["text"])
+    if "deal_price" not in out and yellow_boxes:
+        out["deal_price"] = _parse_price(min(yellow_boxes, key=lambda b: b["cy"])["text"])
     return out
 
 
@@ -333,32 +450,47 @@ def _board_items(conn, boxes: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return items
 
 
-def _red_cell_ratio(rgb: np.ndarray, name_box: dict[str, Any]) -> float:
-    """红品格子背景占比：红品所在的格子除藏品图标外背景为深红/绛红。
-    取名称框正上方一小段（格子底部背景带）统计深红像素比例，
-    与白/绿/蓝/紫/金格子的背景区分开。"""
+def _red_cell_ratio(rgb: np.ndarray, name_box: dict[str, Any], refs: dict | None = None) -> float:
+    """红品格子背景占比：红品所在的格子（图标+名称）背景为深红/绛红。
+    颜色范围取自 颜色图片/红品背景图 的 HSV 范围（替代原硬编码 RGB 阈值），
+    检测区域由名称框正上方 0.6h 扩大到整格（图标+背景，与视觉裁剪同范围），
+    提升对偏色/小检测区红格的召回。"""
+    if refs is None:
+        refs = _get_color_refs()
     x0 = int(name_box.get("x0", 0))
     y0 = int(name_box.get("y0", 0))
     x1 = int(name_box.get("x1", 0))
     y1 = int(name_box.get("y1", 0))
     h = max(y1 - y0, 10)
     H, W = rgb.shape[:2]
-    rx0 = max(0, x0 - int(0.9 * h))
-    rx1 = min(W, x1 + int(0.9 * h))
-    ry0 = max(0, y0 - int(0.6 * h))
-    ry1 = min(H, y0)
+    cx = (x0 + x1) / 2
+    # 检测区域：名称框上方红背景带（较原 0.6h 适度扩大到 1.0h，横向 0.9h->1.2h），
+    # 仍聚焦红背景带、避开图标中心，避免整格区域稀释红占比导致漏判。
+    rx0 = max(0, int(cx - 1.2 * h))
+    rx1 = min(W, int(cx + 1.2 * h))
+    ry0 = max(0, int(y0 - 1.0 * h))
+    ry1 = min(H, int(y0))
     if ry1 <= ry0 or rx1 <= rx0:
         return 0.0
-    reg = rgb[ry0:ry1, rx0:rx1].astype(int)
-    r = reg[..., 0]
-    g = reg[..., 1]
-    b = reg[..., 2]
-    m = (
-        (r - g >= 15) & (r - b >= 15)
-        & (r >= 55) & (r <= 150)
-        & (g >= 28) & (g <= 85)
-        & (b >= 28) & (b <= 75)
-    )
+    reg = rgb[ry0:ry1, rx0:rx1].astype(np.uint8)
+    hsv = cv2.cvtColor(reg, cv2.COLOR_RGB2HSV)
+    Hh = hsv[..., 0].astype(int); S = hsv[..., 1].astype(int); V = hsv[..., 2].astype(int)
+    red = refs.get("red") if refs else None
+    if red:
+        s_min = max(50, red["s"] - red["s_margin"])
+        v_min = max(35, red["v"] - red["v_margin"])
+        hb = red.get("h_band", 14)
+        # 红 Hue 在 0/180 附近回绕；红背景偏暗（排除高亮红图标/红字干扰）
+        m = (S >= s_min) & (V >= v_min) & ((Hh <= hb) | (Hh >= 180 - hb))
+    else:
+        # 回退：原硬编码 RGB 阈值
+        r = reg[..., 0]; g = reg[..., 1]; b = reg[..., 2]
+        m = (
+            (r - g >= 15) & (r - b >= 15)
+            & (r >= 55) & (r <= 150)
+            & (g >= 28) & (g <= 85)
+            & (b >= 28) & (b <= 75)
+        )
     return float(m.mean())
 
 
@@ -378,11 +510,19 @@ def process_auction_dir(conn, folder: Path) -> dict[str, Any]:
             return p, None
 
     # 多图并行 OCR（GPU/CPU 下线程池独立推理），按原顺序合并结果
+    _SETTLE_KW = ("总价值", "成交价", "收益", "盈亏")
     with ThreadPoolExecutor(max_workers=min(4, max(1, len(imgs)))) as ex:
         for img, boxes in ex.map(_ocr_one, imgs):
             if boxes is None:
                 continue
-            s = parse_settlement(boxes)
+            # 结算图：有关键词则加载 rgb 做颜色辅助（蓝=总价值/黄=成交价）
+            rgb = None
+            if any(any(k in b["text"] for k in _SETTLE_KW) for b in boxes):
+                try:
+                    rgb = np.asarray(Image.open(img).convert("RGB")).astype(int)
+                except Exception:
+                    rgb = None
+            s = parse_settlement(boxes, rgb)
             if any(v is not None for v in s.values()):
                 for k, v in s.items():
                     if v is not None:
@@ -629,12 +769,11 @@ def recognize_single(conn, image_path: str) -> dict[str, Any]:
     if not p.exists():
         return {"ok": False, "error": "图片不存在"}
     boxes = _full_texts(str(p))
-    settlement = parse_settlement(boxes)
-    items = _board_items(conn, boxes)
     pil = Image.open(p)
     rgb = np.asarray(pil.convert("RGB")).astype(int)
     H, W, _ = rgb.shape
-    R, G, B = rgb[..., 0], rgb[..., 1], rgb[..., 2]
+    settlement = parse_settlement(boxes, rgb)
+    items = _board_items(conn, boxes)
     crops_dir = DATA_DIR / "auction_crops" / "single"
     crops_dir.mkdir(parents=True, exist_ok=True)
     VISUAL_THRESHOLD = 0.80  # P1-b：0.85→0.80，视觉高置信即可确认图鉴藏品
@@ -693,6 +832,15 @@ def recognize_single(conn, image_path: str) -> dict[str, Any]:
         float(it["matches"][0]["value"]) if it.get("matches") else float(it.get("price") or 0)
         for it in red_items
     )
+    # 需求3：识别完成即自动计算盈亏（总价值 - 成交价），无需等一键归档。
+    # 若结算区已自带收益文本则保留；否则用总价值/成交价推导。
+    tv = settlement.get("total_value")
+    dp = settlement.get("deal_price")
+    if tv is not None and dp is not None and settlement.get("profit") is None:
+        try:
+            settlement["profit"] = round(float(tv) - float(dp), 0)
+        except (TypeError, ValueError):
+            pass
     return {
         "ok": True,
         "settlement": settlement,
@@ -723,7 +871,6 @@ def recognize_multi(conn, image_paths: list[str]) -> dict[str, Any]:
     per_image: list[dict[str, Any]] = []
     merged_items: list[dict[str, Any]] = []
     settlement: dict[str, Any] = {}
-    seen_names: dict[str, str] = {}   # 名称 -> 首次出现的来源图
     errors: list[str] = []
     for p, r in zip(image_paths, results):
         if not r.get("ok"):
@@ -744,17 +891,12 @@ def recognize_multi(conn, image_paths: list[str]) -> dict[str, Any]:
         for it in r.get("items") or []:
             if not it.get("is_red"):
                 continue
-            key = _norm_name(it.get("name") or "")
-            if not key:
-                continue
             src = Path(p).name
-            # 仅跨图同名合并（对局图+结算图多为同一件藏品）；
-            # 同一张图内的同名藏品（拍得两件相同藏品）分别保留。
-            if key in seen_names and seen_names[key] != src:
-                continue
-            seen_names.setdefault(key, src)
             it = dict(it)
             it["source_image"] = src
+            # 保留所有红品实例，不做跨图按名称去重：
+            # 同名但来自不同截图（不同位置/不同对局）的藏品应分别计为一件。
+            # 图内 OCR 碎片去重已在 _board_items 内按位置重叠处理。
             merged_items.append(it)
     red_count = len(merged_items)
     total_cells = sum(int(it.get("grid_cells") or 0) for it in merged_items)

@@ -19,6 +19,10 @@ from .engine import estimate_candidate, get_blended_stats, get_full_ratio
 MIN_SAMPLES = 6
 # 预测区间加宽系数：训练残差区间偏窄，测试集验证后加宽 1.5 倍
 INTERVAL_WIDEN = 1.5
+# Conformal 目标覆盖率：ALPHA = 1 - 目标覆盖率。
+# ALPHA=0.10 → 5/95 分位（90% 区间）；ALPHA=0.06 → 3/97 分位（94% 区间）。
+# 调整此值即可在 区间内宽与覆盖率间取舍（值越小区间越宽、覆盖率越高）。
+CONFORMAL_ALPHA = 0.06
 FEATURES = [
     "red_avg", "red_count", "red_grids", "known_size", "log_known_value",
     "known_ratio", "game_no_norm", "rule_red_log", "rule_full_log",
@@ -28,7 +32,6 @@ FEATURES = [
 # 用两个表的轻量 hash 作指纹，数据未变时复用 dataset 与 LOOCV/chrono 评估结果，
 # 避免每次 OCR 确认触发重训时重复全量计算（LOOCV 的 O(n) 次集成拟合是最大开销）。
 _FP_CACHE: dict[str, tuple[list[dict[str, Any]], list[float], list[float]]] = {}
-_EVAL_CACHE: dict[str, tuple[dict[str, Any], dict[str, Any], dict[str, Any]]] = {}
 
 
 def _ds_fingerprint(conn) -> str:
@@ -260,11 +263,15 @@ def _evaluate(feats, y_red, y_full, mode: str) -> dict[str, Any]:
         pred_r[te] = _predict_ensemble(models_r, X[te])
         pred_f[te] = _predict_ensemble(models_f, X[te])
 
-    # 残差分位（用于区间）
-    q10 = float(np.percentile(YF - pred_f, 10))
-    q90 = float(np.percentile(YF - pred_f, 90))
-    in_lo = YF - pred_f >= q10
-    in_hi = YF - pred_f <= q90
+    # Conformal 校准：用 CONFORMAL_ALPHA 推算经验分位（alpha/2 与 1-alpha/2）。
+    # ALPHA=0.06 → 3/97 分位，名义覆盖 ≈94%；目标覆盖率 = 1 - alpha。
+    resid_f = YF - pred_f
+    lo_p = (CONFORMAL_ALPHA / 2) * 100
+    hi_p = (1 - CONFORMAL_ALPHA / 2) * 100
+    q10 = float(np.percentile(resid_f, lo_p))
+    q90 = float(np.percentile(resid_f, hi_p))
+    in_lo = resid_f >= q10
+    in_hi = resid_f <= q90
     coverage = float(np.mean(in_lo & in_hi))
     orig = [float(feats[i]["rule_full_log"]) for i in range(len(feats))]
     orig_scale = [math.exp(o) for o in orig]
@@ -337,17 +344,11 @@ def retrain(conn) -> dict[str, Any]:
     YF = np.asarray(y_full)
     models_r = _fit_ensemble(X, YR)
     models_f = _fit_ensemble(X, YF)
-    # 评估（LOOCV/chrono/校准曲线）按数据指纹缓存：数据未变时复用，避免每次重训重算
-    fp = _ds_fingerprint(conn)
-    ev = _EVAL_CACHE.get(fp)
-    if ev is None:
-        loocv = _evaluate(feats, y_red, y_full, "loocv")
-        chrono = _evaluate(feats, y_red, y_full, "chrono")
-        curve = _calibration_curve(feats, y_full)
-        _EVAL_CACHE.clear()
-        _EVAL_CACHE[fp] = (loocv, chrono, curve)
-    else:
-        loocv, chrono, curve = ev
+    # Conformal 校准系数 q 必须基于「最新」LOOCV 残差：每次重训强制重算，
+    # 不依赖数据指纹缓存（否则旧样本量下的 q 会延续到新数据，导致覆盖率失真）。
+    loocv = _evaluate(feats, y_red, y_full, "loocv")
+    chrono = _evaluate(feats, y_red, y_full, "chrono")
+    curve = _calibration_curve(feats, y_full)
     importance = {}
     for m in models_f:
         if hasattr(m, "feature_importances_"):

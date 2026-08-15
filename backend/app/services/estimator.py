@@ -165,6 +165,21 @@ def _annotate_bid(rule: dict[str, Any]) -> None:
         conf = round(min(1.0, (1.0 / (w + 0.05)) / 4.0), 3)
     bid["confidence"] = conf
 
+    # 收益（利润）计算：全场估值 vs 推荐出价
+    # 与前端展示的「全场估值 EV」同源（_apply_calibration 之后 rule.full 已是最终值）
+    full = rule.get("full") or {}
+    rec = bid.get("recommended")
+    if isinstance(rec, (int, float)) and rec > 0:
+        ev = float(full.get("ev") or 0)
+        p10 = float(full.get("p10") or 0)
+        p90 = float(full.get("p90") or 0)
+        profit = ev - rec
+        bid["profit"] = round(profit, 0)
+        # 利润率，百分比数值（如 11.11 表示 11.11%）
+        bid["profit_rate"] = round(profit / rec * 100, 2)
+        bid["profit_p10"] = round(p10 - rec, 0)   # 最坏情况收益（全场景下限）
+        bid["profit_p90"] = round(p90 - rec, 0)   # 最好情况收益（全场景上限）
+
 
 def _apply_calibration(rule: dict[str, Any], inputs: dict[str, Any]) -> None:
     """应用历史校准系数（规则预测系统性偏高，用「实际/预测」中位数修正）。

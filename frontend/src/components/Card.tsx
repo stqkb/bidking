@@ -15,11 +15,18 @@ export function Card({ title, desc, right, children, className = "" }: Props) {
         <header className="mb-4 flex items-start justify-between gap-3">
           <div>
             {title && (
-              <h3 className="text-[13px] font-medium uppercase tracking-[0.05em] text-slate-500">
+              <h3
+                className="text-[13px] font-medium uppercase tracking-[0.05em]"
+                style={{ color: "var(--text-secondary)" }}
+              >
                 {title}
               </h3>
             )}
-            {desc && <p className="mt-0.5 text-xs text-slate-500">{desc}</p>}
+            {desc && (
+              <p className="mt-0.5 text-xs" style={{ color: "var(--text-tertiary)" }}>
+                {desc}
+              </p>
+            )}
           </div>
           {right}
         </header>
@@ -40,18 +47,26 @@ export function Stat({
   sub?: ReactNode;
   tone?: "default" | "accent" | "money" | "danger" | "ok";
 }) {
-  const tones: Record<string, string> = {
-    default: "text-slate-800",
-    accent: "text-indigo-600",
-    money: "text-emerald-600",
-    danger: "text-rose-600",
-    ok: "text-teal-600",
+  const toneColor: Record<string, string> = {
+    default: "var(--text-primary)",
+    accent: "var(--gold-400)",
+    money: "var(--jade-400)",
+    danger: "var(--vermilion-400)",
+    ok: "var(--jade-400)",
   };
   return (
-    <div className="rounded-xl border border-ink-700/70 bg-ink-900/60 px-4 py-3">
-      <div className="text-xs text-slate-500">{label}</div>
-      <div className={`mt-1 font-mono text-xl font-medium tabular-nums ${tones[tone]}`}>{value}</div>
-      {sub && <div className="mt-0.5 text-xs text-slate-500">{sub}</div>}
+    <div
+      className="rounded-xl border px-4 py-3"
+      style={{ borderColor: "var(--border-subtle)", background: "var(--bg-input)" }}
+    >
+      <div className="text-xs" style={{ color: "var(--text-secondary)" }}>{label}</div>
+      <div
+        className="mt-1 font-mono text-xl font-medium tabular-nums"
+        style={{ color: toneColor[tone] }}
+      >
+        {value}
+      </div>
+      {sub && <div className="mt-0.5 text-xs" style={{ color: "var(--text-tertiary)" }}>{sub}</div>}
     </div>
   );
 }

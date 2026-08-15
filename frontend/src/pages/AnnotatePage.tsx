@@ -38,7 +38,7 @@ export default function AnnotatePage() {
     profit: number | null;
   } | null>(null);
   const [summary, setSummary] = useState<{
-    items: { name: string; grid_cells: number; value: number }[];
+    items: { name: string; grid_cells: number; value: number; source?: string }[];
     settle: { total_value: number | null; deal_price: number | null; profit: number | null };
   }>({ items: [], settle: { total_value: null, deal_price: null, profit: null } });
   const [summarySaving, setSummarySaving] = useState(false);
@@ -146,15 +146,16 @@ export default function AnnotatePage() {
       setNameOverrides({});
       setGridOverrides({});
       // 自动把识别到的红品并入本局汇总（无需勾选）
-      // 同图内同名红品（如两件相同藏品）分别保留；仅跨图（已汇总集合）同名合并
+      // 去重键改为 (名称 + 来源截图)：同一张图内的同名红品（如两件相同藏品）分别保留；
+      // 不同截图里的同名藏品（不同位置/不同对局）视为不同实例，均计入汇总，不去重。
       setSummary((prev) => {
         const merged = [...prev.items];
-        const prevNames = new Set(prev.items.map((it) => it.name));
         for (const c of j.cells ?? []) {
           const top = c.matches?.[0];
           if (!top || !top.name) continue;
-          if (prevNames.has(top.name)) continue;
-          merged.push({ name: top.name, grid_cells: top.grid_cells ?? 0, value: top.value ?? 0 });
+          // 仅跳过「同一张截图 + 同名」的重复（防止同图重复识别产生副本）
+          if (prev.items.some((it) => it.name === top.name && it.source === path)) continue;
+          merged.push({ name: top.name, grid_cells: top.grid_cells ?? 0, value: top.value ?? 0, source: path });
         }
         return { ...prev, items: merged };
       });
@@ -366,11 +367,11 @@ export default function AnnotatePage() {
       if (j.ok) {
         // 手动添加的红品也并入跨图汇总
         setSummary((prev) => {
-          const names = new Set(prev.items.map((it) => it.name));
-          if (!names.has(j.name)) {
+          // 去重键 (名称 + 来源截图)：不同截图的同名藏品分别保留
+          if (!prev.items.some((it) => it.name === j.name && it.source === imagePath)) {
             return {
               ...prev,
-              items: [...prev.items, { name: j.name, grid_cells: grid, value }],
+              items: [...prev.items, { name: j.name, grid_cells: grid, value, source: imagePath }],
             };
           }
           return prev;
@@ -423,15 +424,15 @@ export default function AnnotatePage() {
         /* ignore */
       }
     }
-    // 跨图合并：与已汇总集合（prev.items）同名则跳过；
-    // 本次勾选（同一张图）内的同名红品分别保留（如两件相同藏品）
+    // 跨图合并：去重键 (名称 + 来源截图)。
+    // 同一张图内的同名红品分别保留（如两件相同藏品）；
+    // 不同截图里的同名藏品视为不同实例，均计入汇总，不去重。
     const curSettle = settle;
     setSummary((prev) => {
       const merged = [...prev.items];
-      const prevNames = new Set(prev.items.map((it) => it.name));
       for (const p of picked) {
-        if (!prevNames.has(p.name)) {
-          merged.push(p);
+        if (!prev.items.some((it) => it.name === p.name && it.source === imagePath)) {
+          merged.push({ ...p, source: imagePath });
         }
       }
       const mergedSettle = {

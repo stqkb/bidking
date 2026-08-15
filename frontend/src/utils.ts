@@ -18,9 +18,9 @@ export function fmtPct(v: number | null | undefined): string {
 }
 
 export function riskColor(risk: string): string {
-  if (risk === "低") return "bg-emerald-500/15 text-emerald-300 border-emerald-500/30";
-  if (risk === "中") return "bg-amber-500/15 text-amber-300 border-amber-500/30";
-  return "bg-rose-500/15 text-rose-300 border-rose-500/30";
+  if (risk === "低") return "bg-jade-soft text-jade-400 border-jade-500/30";
+  if (risk === "中") return "bg-amber-soft text-amber-400 border-amber-500/30";
+  return "bg-vermilion-soft text-vermilion-400 border-vermilion-500/30";
 }
 
 export function clampNum(v: string, min: number, max: number): number | null {

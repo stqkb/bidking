@@ -49,7 +49,7 @@ def catalog() -> dict[str, Any]:
 def catalog_items() -> dict[str, Any]:
     with db(readonly=True) as conn:
         rows = conn.execute(
-            "SELECT id, name, grid_cells, value FROM catalog_items ORDER BY grid_cells, value DESC"
+            "SELECT id, name, grid_cells, value, current_value FROM catalog_items ORDER BY grid_cells, value DESC"
         ).fetchall()
     return {"items": [dict(r) for r in rows]}
 

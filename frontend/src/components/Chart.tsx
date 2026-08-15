@@ -1,14 +1,17 @@
 import { useEffect, useRef } from "react";
 import * as echarts from "echarts";
+import { CHART } from "../theme/chartTokens";
 
 interface Props {
   // echarts 配置对象类型较严，业务侧以 any 传递（运行时由 echarts 校验）
   option: any;
   height?: number;
   className?: string;
+  /** 无障碍：图表语义描述，作为容器 role="img" 的 aria-label */
+  ariaLabel?: string;
 }
 
-export default function Chart({ option, height = 260, className }: Props) {
+export default function Chart({ option, height = 260, className, ariaLabel }: Props) {
   const ref = useRef<HTMLDivElement>(null);
   const chartRef = useRef<echarts.ECharts | null>(null);
 
@@ -32,14 +35,25 @@ export default function Chart({ option, height = 260, className }: Props) {
       backgroundColor: "transparent",
       ...option,
       tooltip: {
-        backgroundColor: "#1a1a1f",
-        borderColor: "#2a2a32",
-        textStyle: { color: "#e8e6e3", fontSize: 12 },
+        backgroundColor: CHART.tooltipBg,
+        borderColor: CHART.tooltipBorder,
+        borderWidth: 1,
+        borderRadius: 8,
+        padding: [8, 12],
+        textStyle: { color: CHART.textPrimary, fontSize: 12 },
         ...(option?.tooltip ?? {}),
       },
     };
     chartRef.current.setOption(merged, true);
   }, [option]);
 
-  return <div ref={ref} className={className} style={{ height }} />;
+  return (
+    <div
+      ref={ref}
+      className={className}
+      style={{ height }}
+      role={ariaLabel ? "img" : undefined}
+      aria-label={ariaLabel}
+    />
+  );
 }
