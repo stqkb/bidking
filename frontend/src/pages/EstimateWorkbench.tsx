@@ -58,7 +58,7 @@ export default function EstimateWorkbench() {
   } | null>(null);
   const [ocrMsg, setOcrMsg] = useState("");
   const [ocrWarn, setOcrWarn] = useState(false);
-  const [autoClipOn, setAutoClipOn] = useState(false);
+  const [autoClipOn, setAutoClipOn] = useState(true);
   const lastClipHash = useRef("");
   const firstPeek = useRef(true);
   const clipPathRef = useRef("");

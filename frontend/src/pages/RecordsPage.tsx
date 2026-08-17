@@ -195,14 +195,14 @@ export default function RecordsPage() {
         trigger: "item",
         backgroundColor: CHART.bgSurface,
         borderColor: CHART.border,
-        textStyle: { color: CHART.textSecondary, fontFamily: "JetBrains Mono, monospace", fontSize: 12 },
+        textStyle: { color: CHART.textSecondary, fontFamily: "ui-monospace, SFMono-Regular, 'Cascadia Mono', 'Segoe UI Mono', monospace", fontSize: 12 },
         formatter: (p: any) => {
           const a = pts[p.dataIndex];
           const pred = a.pred;
           const actual = a.actual;
           const err = actual > 0 ? Math.abs(pred - actual) / actual * 100 : 0;
           const errColor = err < 15 ? CHART.jade : err < 30 ? CHART.amber : CHART.vermilion;
-          return `<div style="font-family:JetBrains Mono,monospace">
+          return `<div style="font-family:ui-monospace, SFMono-Regular, 'Cascadia Mono', 'Segoe UI Mono', monospace">
             <span style="color:${CHART.goldLight}">对局 #${a.game_no ?? "—"}</span><br/>
             <span style="color:${CHART.textSecondary}">预测: </span><span style="color:${CHART.goldDim}">¥${fmtWan(pred)}</span><br/>
             <span style="color:${CHART.textSecondary}">实际: </span><span style="color:${CHART.goldLight}">¥${fmtWan(actual)}</span><br/>

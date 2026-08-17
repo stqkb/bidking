@@ -55,7 +55,7 @@ export function ResultCard({ label, value, valueNum, format, sub, tone = "defaul
       </div>
       <div
         className="mt-2 font-mono text-2xl font-semibold tabular-nums lg:text-3xl"
-        style={{ color: s.value, fontFamily: "'JetBrains Mono', 'Cascadia Code', monospace" }}
+        style={{ color: s.value, fontFamily: "ui-monospace, SFMono-Regular, 'Cascadia Mono', 'Segoe UI Mono', monospace" }}
       >
         {valueNum !== undefined ? (
           <AnimatedNumber value={valueNum} format={format} />

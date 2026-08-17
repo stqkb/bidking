@@ -3,12 +3,12 @@ import { fmtMoney, fmtPct } from "../../utils";
 
 /**
  * 收益展示卡：预计收益 / 收益率 / 最差收益(p10) / 最好收益(p90)。
- * 正收益用 jade（绿） + "+"，负收益用 vermilion（红） + "-"；金额用 JetBrains Mono + tabular-nums。
+ * 正收益用 jade（绿） + "+"，负收益用 vermilion（红） + "-"；金额用系统等宽字体栈 + tabular-nums。
  * should_bid 为 false 时：整卡灰显，显示「不建议出价」。
  * |profit_rate| > 100 视为异常（多为缺 known_items 导致校准失真），不显示具体数字，改为 ">100%" 避免误导。
  */
 
-const MONO = "'JetBrains Mono', 'Cascadia Code', monospace";
+const MONO = "ui-monospace, SFMono-Regular, 'Cascadia Mono', 'Segoe UI Mono', monospace";
 const RATE_LIMIT = 100; // |profit_rate| 超过此值视为异常
 
 function profitColor(v: number | null | undefined): string {

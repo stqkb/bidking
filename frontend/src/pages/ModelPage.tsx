@@ -110,7 +110,7 @@ function MetricCard({
       </div>
       <div
         className="mt-1.5 font-mono text-2xl font-semibold tabular-nums"
-        style={{ color: toneMap[tone], fontFamily: "'JetBrains Mono', monospace" }}
+        style={{ color: toneMap[tone], fontFamily: "ui-monospace, SFMono-Regular, 'Cascadia Mono', 'Segoe UI Mono', monospace" }}
       >
         {value}
       </div>

@@ -45,3 +45,10 @@ frontend/*.timestamp-*.mjs
 # 内部工作记忆与剪贴板截图（不随仓库传播）
 .workbuddy/
 data/captures/
+
+# SQLite 运行时临时文件
+data/*.db-shm
+data/*.db-wal
+
+# 测试用截图输入（不入库）
+截图输入/
