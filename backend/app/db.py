@@ -133,6 +133,11 @@ def init_db() -> None:
         if "status" not in gcols:
             # 归档状态：settled=已结算 / pending_settlement=待结算（估值当实际，不进训练）
             conn.execute("ALTER TABLE game_records ADD COLUMN status TEXT")
+        if "predicted_full" not in gcols:
+            # 归档时保存的估值预测值，供历史复盘「预测 vs 实际」对比
+            conn.execute("ALTER TABLE game_records ADD COLUMN predicted_full REAL")
+        if "predicted_red" not in gcols:
+            conn.execute("ALTER TABLE game_records ADD COLUMN predicted_red REAL")
 
 
 def rows_to_dicts(rows: list[sqlite3.Row]) -> list[dict[str, Any]]:

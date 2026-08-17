@@ -112,6 +112,9 @@ export interface GameRecord {
   winner: string | null;
   won: number | null;  // 本人是否竞拍成功：1 成功 / 0 未成功 / null 未标记
   profit_ok?: number | null;  // 收益核验：1 通过 / 0 不通过(收益≠成交价−总价值，不进训练) / null 未核验
+  predicted_full?: number | null;  // 归档时的估值预测（全场），供「预测 vs 实际」对比
+  predicted_red?: number | null;   // 归档时的估值预测（红品）
+  actual_full?: number | null;     // full_value 别名，便于复盘页统一命名
   items: { name: string; grid_cells: number; sys_price?: number | null; trade_price?: number | null }[];
 }
 
@@ -190,6 +193,7 @@ export interface OcrTask {
     settlement?: { total_value?: number; deal_price?: number; profit?: number };
     red_count?: number;
     total_cells?: number;
+    red_avg?: number | null;
     error?: string;
     image_size?: number[];
   };

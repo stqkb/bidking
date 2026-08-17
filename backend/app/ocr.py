@@ -184,6 +184,9 @@ def parse_shape(name: str) -> tuple[int, int] | None:
 # 数字分隔符：同时接受半角逗号与全角逗号（OCR 常把 盈亏差额+94，830 的逗号识别为全角）
 _NUM = r"[\d，,]+(?:\.\d+)?"
 
+# 「格数为X.X」：截图直接以文字显示红品藏品的平均格数（纯文本提取，非计算均值）
+_RED_AVG_RE = re.compile(r"格数为(\d+\.?\d*)")
+
 
 def _is_price(t: str) -> bool:
     return bool(re.fullmatch(_NUM, t.strip()))
@@ -220,6 +223,24 @@ def _inline_number(t: str) -> float | None:
     if not m:
         return None
     return _parse_price(m.group(1))
+
+
+def _parse_try(s: str) -> float | None:
+    try:
+        return float(s)
+    except (TypeError, ValueError):
+        return None
+
+
+def _extract_red_avg(boxes: list[dict[str, Any]]) -> float | None:
+    """从 OCR 文本中提取红品平均格数「格数为X.X」（纯文本提取，不计算均值）。
+    遍历所有识别行，取第一个匹配项；未匹配返回 None。
+    - 匹配「格数为1.5」-> 1.5；「格数为5」-> 5.0（兼容无小数点）。"""
+    for b in boxes:
+        m = _RED_AVG_RE.search(b.get("text", "") or "")
+        if m:
+            return _parse_try(m.group(1))
+    return None
 
 
 # 识别结果 LRU 缓存：同一文件（路径+mtime+大小+缩放档位）不重复 OCR。
@@ -769,6 +790,7 @@ def recognize_single(conn, image_path: str) -> dict[str, Any]:
     if not p.exists():
         return {"ok": False, "error": "图片不存在"}
     boxes = _full_texts(str(p))
+    red_avg = _extract_red_avg(boxes)
     pil = Image.open(p)
     rgb = np.asarray(pil.convert("RGB")).astype(int)
     H, W, _ = rgb.shape
@@ -848,6 +870,7 @@ def recognize_single(conn, image_path: str) -> dict[str, Any]:
         "red_count": red_count,
         "total_cells": total_cells,
         "red_value": round(red_value, 0),
+        "red_avg": red_avg,
     }
 
 
@@ -872,10 +895,13 @@ def recognize_multi(conn, image_paths: list[str]) -> dict[str, Any]:
     merged_items: list[dict[str, Any]] = []
     settlement: dict[str, Any] = {}
     errors: list[str] = []
+    red_avg: float | None = None
     for p, r in zip(image_paths, results):
         if not r.get("ok"):
             errors.append(f"{Path(p).name}: {r.get('error', '识别失败')}")
             continue
+        if red_avg is None and r.get("red_avg") is not None:
+            red_avg = r["red_avg"]
         per_image.append({
             "path": p,
             "name": Path(p).name,
@@ -912,6 +938,7 @@ def recognize_multi(conn, image_paths: list[str]) -> dict[str, Any]:
         "red_count": red_count,
         "total_cells": total_cells,
         "red_value": round(red_value, 0),
+        "red_avg": red_avg,
         "errors": errors,
         "image_count": len(per_image),
     }

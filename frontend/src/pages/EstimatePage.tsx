@@ -1,15 +1,11 @@
-import { EstimateWizard } from "./estimate/EstimateWizard";
+import EstimateWorkbench from "./EstimateWorkbench";
 
 /**
- * EstimatePage — thin wrapper around the 3-step wizard.
+ * EstimatePage — 单页估值工作台。
  *
- * The wizard is split into:
- *   Step 1: Parameters (game params, advanced fields, screenshot OCR)
- *   Step 2: Known items (optional enrichment, info density bar)
- *   Step 3: Results (bid recommendation, interval bar, candidates, similar games)
- *
- * State is managed via useReducer in EstimateWizard.tsx.
+ * 旧版 3 步向导保留在 estimate/EstimateWizard.tsx（含 StepParameters / StepKnownItems /
+ * StepResults），供回退使用；本页现直接渲染 EstimateWorkbench（左右两栏 + 底部固定操作栏）。
  */
 export default function EstimatePage() {
-  return <EstimateWizard />;
+  return <EstimateWorkbench />;
 }

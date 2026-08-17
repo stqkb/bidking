@@ -101,6 +101,8 @@ def games() -> dict[str, Any]:
     for r in rows:
         d = dict(r)
         d["items"] = json.loads(d.pop("items_json") or "[]")
+        # 别名：full_value 即实际全场价，便于复盘页统一使用 actual_full 字段
+        d["actual_full"] = d.get("full_value")
         out.append(d)
     return {"games": out}
 
@@ -273,11 +275,12 @@ async def quick_archive(request: Request) -> dict[str, Any]:
         conn.execute(
             """INSERT INTO game_records
                (game_no, grid_combo, red_count, red_grids, red_avg, red_value,
-                full_value, deal_price, profit, items_json, won, profit_ok, status)
-               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                full_value, predicted_full, predicted_red, deal_price, profit,
+                items_json, won, profit_ok, status)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
             (game_no, combo, red_count or None, grid_total or None, red_avg,
-             red_value or None, full_value or None, None, None,
-             json_dumps(items), 0, 1, status),
+             red_value or None, full_value or None, est_full or None, est_red or None,
+             None, None, json_dumps(items), 0, 1, status),
         )
     cache.invalidate_games()
     return {"ok": True, "game_no": game_no, "status": status, "saved_at": now}

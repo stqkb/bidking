@@ -3,6 +3,7 @@ import { api } from "./api";
 import { Sidebar, type PageKey } from "./components/layout/Sidebar";
 import { TopBar } from "./components/layout/TopBar";
 import { ToastProvider } from "./components/Toast";
+import { navigateTo } from "./nav";
 
 /* ── 页面懒加载（code splitting，减少首屏 JS 体积） ── */
 const DashboardPage = lazy(() => import("./pages/DashboardPage"));
@@ -89,6 +90,17 @@ export default function App() {
       setAnimKey((k) => k + 1);
     }
   };
+
+  /* ── 跨页面导航事件（navigateTo 派发，用于 URL query 闭环） ── */
+  useEffect(() => {
+    const onNav = (e: Event) => {
+      const detail = (e as CustomEvent<{ page: PageKey }>).detail;
+      if (detail?.page) handleNavigate(detail.page);
+    };
+    window.addEventListener("app-navigate", onNav as EventListener);
+    return () => window.removeEventListener("app-navigate", onNav as EventListener);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page]);
 
   return (
     <ToastProvider>

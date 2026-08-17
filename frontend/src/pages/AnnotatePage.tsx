@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api";
+import { navigateTo } from "../nav";
 import { Card, Stat } from "../components/Card";
 import type { CatalogItem } from "../types";
 import { fmtMoney } from "../utils";
@@ -52,6 +53,8 @@ export default function AnnotatePage() {
   const [manualSort, setManualSort] = useState<"az" | "value_asc" | "value_desc">("az");
   const [autoClip, setAutoClip] = useState(false);
   const [won, setWon] = useState(false);  // 本人是否竞拍成功（收益规律统计用）
+  const [pred, setPred] = useState<{ red_avg?: number; red_count?: number; total_grids?: number } | null>(null);
+  const [editIdx, setEditIdx] = useState<number | null>(null);
   const lastClipHash = useRef("");
   const firstPeek = useRef(true);
   const imgRef = useRef<HTMLImageElement>(null);
@@ -78,6 +81,25 @@ export default function AnnotatePage() {
       setMsg("清除失败，请重试");
     }
   };
+
+  /* ── 从估值页跳转来：读取 URL query 预测参数，自动开启截图采集 ── */
+  useEffect(() => {
+    const sp = new URLSearchParams(location.search);
+    const red_avg = sp.get("red_avg");
+    const red_count = sp.get("red_count");
+    const total_grids = sp.get("total_grids");
+    if (red_avg || red_count || total_grids) {
+      setPred({
+        red_avg: red_avg ? Number(red_avg) : undefined,
+        red_count: red_count ? Number(red_count) : undefined,
+        total_grids: total_grids ? Number(total_grids) : undefined,
+      });
+      // 自动开启「截图即识别」：在游戏中按 Win+Shift+S 即可自动采样并识别
+      setAutoClip(true);
+      setMsg("已带入估值页预测参数，并自动开启截图采集：在游戏中按 Win+Shift+S 即可自动识别");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     api.catalogItems().then((r) => setItems(r.items)).catch(() => {});
@@ -145,6 +167,7 @@ export default function AnnotatePage() {
       setChecked(new Set());
       setNameOverrides({});
       setGridOverrides({});
+      setEditIdx(null);
       // 自动把识别到的红品并入本局汇总（无需勾选）
       // 去重键改为 (名称 + 来源截图)：同一张图内的同名红品（如两件相同藏品）分别保留；
       // 不同截图里的同名藏品（不同位置/不同对局）视为不同实例，均计入汇总，不去重。
@@ -195,7 +218,7 @@ export default function AnnotatePage() {
         if (j.ok && j.hash && j.hash !== lastClipHash.current) {
           lastClipHash.current = j.hash;
           selectImage(j.path);
-          setMsg("已自动采样剪贴板截图并识别，请勾选红品");
+          setMsg("已自动采样剪贴板截图并识别，请核对后确认");
         }
       } catch {
         /* ignore */
@@ -213,6 +236,7 @@ export default function AnnotatePage() {
     setChecked(new Set());
     setNameOverrides({});
     setGridOverrides({});
+    setEditIdx(null);
     loadAnno(path);
     detect(path);
   };
@@ -317,6 +341,10 @@ export default function AnnotatePage() {
       else next.add(i);
       return next;
     });
+  };
+
+  const confirmAll = () => {
+    setChecked(new Set(cells.map((_, i) => i)));
   };
 
   const manualDown = (e: React.MouseEvent) => {
@@ -518,6 +546,7 @@ export default function AnnotatePage() {
     setChecked(new Set());
     setNameOverrides({});
     setGridOverrides({});
+    setEditIdx(null);
     setSummary({ items: [], settle: { total_value: null, deal_price: null, profit: null } });
     setWon(false);
     setSettle(null);
@@ -527,6 +556,14 @@ export default function AnnotatePage() {
     setManualName("");
     setManualGrid("");
     setManualValue("");
+  };
+
+  const onNewRound = async () => {
+    if (summary.items.length > 0) {
+      await saveSummary();
+    }
+    // 跳回估值页并清空 URL query（重新开始一局）
+    navigateTo("estimate");
   };
 
   const updateSummaryItem = (idx: number, patch: Partial<{ name: string; grid_cells: number; value: number }>) => {
@@ -580,8 +617,17 @@ export default function AnnotatePage() {
     setManualValue(String(it.value));
   };
 
+  // 进度统计（底部固定栏）
+  const correctedIdx = new Set([
+    ...Object.keys(nameOverrides).map(Number),
+    ...Object.keys(gridOverrides).map(Number),
+  ]);
+  const corrected = correctedIdx.size;
+  const confirmedCount = checked.size;
+  const pendingCount = Math.max(0, cells.length - confirmedCount);
+
   return (
-    <div className="space-y-5">
+    <div className="flex min-h-full flex-col gap-5 pb-28">
       {/* ── 待确认 OCR 任务 ── */}
       {ocrPending.length > 0 && (
         <Card
@@ -606,9 +652,11 @@ export default function AnnotatePage() {
           </div>
         </Card>
       )}
+
+      {/* ── 顶部：截图采集控制 ── */}
       <Card
-        title="标注校准（勾选确认）"
-        desc="选择图片后自动识别红品格子与候选 → 勾选正确的 → 保存入库学习；标注记录可查看缩略图并删除"
+        title="截图采集"
+        desc="上传 / 截取游戏画面 / 采样剪贴板；从估值页跳转时已自动开启「截图即识别」"
       >
         <div className="flex flex-wrap items-center gap-2">
           <label className="btn-ghost !py-2 text-xs">
@@ -633,45 +681,18 @@ export default function AnnotatePage() {
             />
             自动采样 Win+Shift+S（截图即识别）
           </label>
-          <span className="text-xs text-content-secondary">按格数筛选红品：</span>
-          <select className="input w-28 !py-1.5 text-xs" value={filterCells} onChange={(e) => setFilterCells(e.target.value)}>
-            <option value="">全部格数</option>
-            {Array.from(new Set(items.map((it) => it.grid_cells))).sort((a, b) => a - b).map((g) => (
-              <option key={g} value={g}>{g} 格</option>
-            ))}
-          </select>
+          {pred && (
+            <span className="ml-auto rounded-md border border-gold-400/30 bg-gold-soft px-2.5 py-1 text-[11px] text-gold-300">
+              估值页预测：均格 <b>{pred.red_avg ?? "—"}</b> · 红品 <b>{pred.red_count ?? "—"}</b> · 总格 <b>{pred.total_grids ?? "—"}</b>
+            </span>
+          )}
         </div>
-        {images.length > 0 && (
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            <span className="text-[11px] text-content-secondary">图片（{images.length}）：</span>
-            {images.map((img, i) => (
-              <button
-                key={img.path}
-                className={`group relative flex items-center gap-1.5 rounded-lg border px-2 py-1 text-[11px] transition ${
-                  i === activeIdx ? "border-gold-400/60 bg-gold-soft text-gold-400" : "border-ink-700 text-content-primary hover:border-ink-500"
-                }`}
-                onClick={() => switchImage(i)}
-              >
-                <img src={img.url} alt="" className="h-6 w-6 rounded object-contain bg-ink-900" />
-                <span className="max-w-28 truncate">{img.name.slice(0, 14)}</span>
-                <span
-                  className="ml-0.5 text-vermilion-400 opacity-0 transition group-hover:opacity-100"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    removeImage(i);
-                  }}
-                >
-                  ✕
-                </span>
-              </button>
-            ))}
-          </div>
-        )}
-        {msg && <div className="mt-2 text-sm text-jade-400">{msg}</div>}
       </Card>
 
-      {imageUrl ? (
-        <div className="grid gap-5 lg:grid-cols-[1fr_360px]">
+      {/* ── 两栏：左截图(45%) + 右识别(55%) ── */}
+      <div className="grid gap-5 lg:grid-cols-[9fr_11fr]">
+        {/* 左栏：截图区 */}
+        <div className="flex flex-col gap-3">
           <Card
             title="原图与自动识别"
             desc={manualOpen ? "手动添加模式：拖拽框出漏检的红品图标" : "红框为自动检测到的红品格子"}
@@ -680,22 +701,13 @@ export default function AnnotatePage() {
                 {settle && (settle.total_value != null || settle.deal_price != null || settle.profit != null) && (
                   <>
                     <span className="text-xs text-content-secondary">
-                      总价值{" "}
-                      <b className="text-jade-400">
-                        {settle.total_value != null ? settle.total_value.toLocaleString() : "—"}
-                      </b>
+                      总价值 <b className="text-jade-400">{settle.total_value != null ? settle.total_value.toLocaleString() : "—"}</b>
                     </span>
                     <span className="text-xs text-content-secondary">
-                      成交价{" "}
-                      <b className="text-sky-400">
-                        {settle.deal_price != null ? settle.deal_price.toLocaleString() : "—"}
-                      </b>
+                      成交价 <b className="text-sky-400">{settle.deal_price != null ? settle.deal_price.toLocaleString() : "—"}</b>
                     </span>
                     <span className="text-xs text-content-secondary">
-                      收益{" "}
-                      <b className={(settle.profit ?? 0) >= 0 ? "text-jade-400" : "text-vermilion-400"}>
-                        {settle.profit != null ? settle.profit.toLocaleString() : "—"}
-                      </b>
+                      收益 <b className={(settle.profit ?? 0) >= 0 ? "text-jade-400" : "text-vermilion-400"}>{settle.profit != null ? settle.profit.toLocaleString() : "—"}</b>
                     </span>
                   </>
                 )}
@@ -708,43 +720,109 @@ export default function AnnotatePage() {
               </div>
             }
           >
-            <div
-              className="relative max-h-[560px] w-full overflow-auto rounded-xl border border-ink-700 bg-ink-900"
-              onMouseDown={manualDown}
-              onMouseMove={manualMove}
-              onMouseUp={manualUp}
-              onMouseLeave={() => setManualDrag(null)}
-            >
-              <div className="relative inline-block">
-                <img ref={imgRef} src={imageUrl} alt="" className="block max-w-full select-none" draggable={false} />
-                {cells.map((c, i) => {
-                  const sx = imgRef.current ? imgRef.current.width / imgRef.current.naturalWidth : 1;
-                  return (
+            {imageUrl ? (
+              <div
+                className="relative max-h-[560px] w-full overflow-auto rounded-xl border border-ink-700 bg-ink-900"
+                onMouseDown={manualDown}
+                onMouseMove={manualMove}
+                onMouseUp={manualUp}
+                onMouseLeave={() => setManualDrag(null)}
+              >
+                <div className="relative inline-block">
+                  <img ref={imgRef} src={imageUrl} alt="" className="block max-w-full select-none" draggable={false} />
+                  {cells.map((c, i) => {
+                    const sx = imgRef.current ? imgRef.current.width / imgRef.current.naturalWidth : 1;
+                    return (
+                      <div
+                        key={i}
+                        className={`pointer-events-none absolute border-2 ${checked.has(i) ? "border-jade-400" : "border-fuchsia-400"}`}
+                        style={{
+                          left: c.icon[0] * sx,
+                          top: c.icon[1] * sx,
+                          width: (c.icon[2] - c.icon[0]) * sx,
+                          height: (c.icon[3] - c.icon[1]) * sx,
+                        }}
+                      />
+                    );
+                  })}
+                  {manualDrag && (
                     <div
-                      key={i}
-                      className={`pointer-events-none absolute border-2 ${checked.has(i) ? "border-jade-400" : "border-fuchsia-400"}`}
+                      className="pointer-events-none absolute border-2 border-amber-400 bg-amber-400/20"
                       style={{
-                        left: c.icon[0] * sx,
-                        top: c.icon[1] * sx,
-                        width: (c.icon[2] - c.icon[0]) * sx,
-                        height: (c.icon[3] - c.icon[1]) * sx,
+                        left: Math.min(manualDrag.sx, manualDrag.ex),
+                        top: Math.min(manualDrag.sy, manualDrag.ey),
+                        width: Math.abs(manualDrag.ex - manualDrag.sx),
+                        height: Math.abs(manualDrag.ey - manualDrag.sy),
                       }}
                     />
-                  );
-                })}
-                {manualDrag && (
-                  <div
-                    className="pointer-events-none absolute border-2 border-amber-400 bg-amber-400/20"
-                    style={{
-                      left: Math.min(manualDrag.sx, manualDrag.ex),
-                      top: Math.min(manualDrag.sy, manualDrag.ey),
-                      width: Math.abs(manualDrag.ex - manualDrag.sx),
-                      height: Math.abs(manualDrag.ey - manualDrag.sy),
-                    }}
-                  />
-                )}
+                  )}
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className="flex h-40 items-center justify-center rounded-xl border border-dashed border-ink-700 text-sm text-content-secondary">
+                尚未选择图片
+              </div>
+            )}
+
+            {/* 左右箭头 + 进度点 */}
+            {images.length > 0 && (
+              <div className="mt-2 flex items-center justify-between">
+                <button
+                  className="btn-ghost !h-7 !px-2 text-xs"
+                  onClick={() => switchImage(activeIdx - 1)}
+                  disabled={activeIdx === 0}
+                >
+                  ← 上一张
+                </button>
+                <div className="flex items-center gap-1.5">
+                  {images.map((_, i) => (
+                    <span
+                      key={i}
+                      className={i === activeIdx ? "text-gold-400" : "text-ink-600"}
+                      style={{ fontSize: 10 }}
+                    >
+                      {i === activeIdx ? "●" : "○"}
+                    </span>
+                  ))}
+                </div>
+                <button
+                  className="btn-ghost !h-7 !px-2 text-xs"
+                  onClick={() => switchImage(activeIdx + 1)}
+                  disabled={activeIdx >= images.length - 1}
+                >
+                  下一张 →
+                </button>
+              </div>
+            )}
+
+            {/* 缩略图列表 */}
+            {images.length > 0 && (
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <span className="text-[11px] text-content-secondary">图片（{images.length}）：</span>
+                {images.map((img, i) => (
+                  <button
+                    key={img.path}
+                    className={`group relative flex items-center gap-1.5 rounded-lg border px-2 py-1 text-[11px] transition ${
+                      i === activeIdx ? "border-gold-400/60 bg-gold-soft text-gold-400" : "border-ink-700 text-content-primary hover:border-ink-500"
+                    }`}
+                    onClick={() => switchImage(i)}
+                  >
+                    <img src={img.url} alt="" className="h-6 w-6 rounded object-contain bg-ink-900" />
+                    <span className="max-w-28 truncate">{img.name.slice(0, 14)}</span>
+                    <span
+                      className="ml-0.5 text-vermilion-400 opacity-0 transition group-hover:opacity-100"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        removeImage(i);
+                      }}
+                    >
+                      ✕
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
+
             {manualOpen && (
               <div className="mt-2 rounded-xl border border-amber-400/30 bg-amber-500/5 p-2.5">
                 <div className="mb-2 flex flex-wrap items-center gap-2">
@@ -829,209 +907,291 @@ export default function AnnotatePage() {
               </div>
             )}
           </Card>
+        </div>
 
-          <Card title="自动识别结果（已计入本局汇总）" desc="识别到的红品已自动加入下方汇总，可在此参考或直接编辑汇总">
+        {/* 右栏：识别结果 */}
+        <div className="flex flex-col gap-3">
+          <Card title={`识别结果（${cells.length}）`} desc="每件藏品一张卡片，可直接确认或修正；识别结果已自动计入本局汇总">
+            {cells.length === 0 && !busy && <div className="py-4 text-center text-sm text-content-secondary">未检测到红品格子</div>}
             <div className="space-y-2">
-              {cells.length === 0 && !busy && <div className="py-4 text-center text-sm text-content-secondary">未检测到红品格子</div>}
+              {busy && cells.length === 0 && <div className="py-4 text-center text-sm text-content-secondary">识别中…</div>}
               {cells.map((c, i) => {
                 const top = c.matches[0];
+                const confirmed = checked.has(i);
+                const editing = editIdx === i;
                 const thumb = `/api/vision/crop_box?image_path=${encodeURIComponent(imagePath)}&box=${c.icon.join(",")}`;
+                const nameVal = nameOverrides[i] ?? top?.name ?? "";
+                const gridVal = gridOverrides[i] ?? top?.grid_cells ?? 0;
                 return (
                   <div
                     key={i}
-                    className="flex items-center gap-2 rounded-lg border border-ink-700 p-1.5"
+                    className={`flex items-center gap-2 rounded-lg border p-1.5 ${confirmed ? "border-jade-400/60 bg-jade-soft/40" : "border-ink-700"}`}
                   >
                     <img src={thumb} alt="" className="h-11 w-11 shrink-0 rounded border border-ink-700 object-contain bg-ink-900" />
                     <div className="min-w-0 flex-1">
-                      <div className="truncate text-xs text-content-primary">{top?.name ?? "未识别"}</div>
+                      {editing ? (
+                        <div className="flex items-center gap-1">
+                          <input
+                            className="input w-32 !py-0.5 text-xs"
+                            value={nameVal}
+                            onChange={(e) => setNameOverrides((prev) => ({ ...prev, [i]: e.target.value }))}
+                          />
+                          <input
+                            className="input w-16 !py-0.5 text-xs"
+                            type="number"
+                            value={gridVal}
+                            onChange={(e) => setGridOverrides((prev) => ({ ...prev, [i]: e.target.value }))}
+                          />
+                        </div>
+                      ) : (
+                        <div className="truncate text-xs text-content-primary">{top?.name ?? "未识别"}</div>
+                      )}
                       <span className="text-[10px] text-content-secondary">
                         {top ? `${top.grid_cells ?? 0}格 · ${(top.score * 100).toFixed(0)}% · ${top.value != null ? fmtMoney(top.value) : "—"}` : "无候选"}
                       </span>
                     </div>
+                    <div className="flex shrink-0 flex-col gap-1">
+                      <button
+                        className={`btn-ghost !h-7 !px-2 text-[11px] ${confirmed ? "!border-jade-400 !text-jade-400" : ""}`}
+                        onClick={() => toggle(i)}
+                      >
+                        {confirmed ? "✓ 已确认" : "确认"}
+                      </button>
+                      <button
+                        className={`btn-ghost !h-7 !px-2 text-[11px] ${editing ? "!border-amber-400 !text-amber-400" : ""}`}
+                        onClick={() => setEditIdx(editing ? null : i)}
+                      >
+                        {editing ? "完成" : "修正"}
+                      </button>
+                    </div>
                   </div>
                 );
               })}
-              <div className="text-[11px] text-content-secondary">
-                提示：识别结果已自动入汇总；如需补录漏检藏品，请用上方"手动添加漏检红品"；识别错的在下方汇总里删除或改选。
-              </div>
+              {cells.length > 0 && (
+                <div className="text-[11px] text-content-secondary">
+                  提示：识别结果已自动入汇总；如需补录漏检藏品，请用上方「手动添加漏检红品」；识别错的在下方汇总里删除或改选。
+                </div>
+              )}
             </div>
           </Card>
-        </div>
-      ) : (
-        <Card title="选择图片" desc="先上传截图、截取游戏画面或采样剪贴板">
-          <div className="flex h-40 items-center justify-center rounded-xl border border-dashed border-ink-700 text-sm text-content-secondary">
-            尚未选择图片
-          </div>
-        </Card>
-      )}
 
-      {summary.items.length > 0 && (
-        <Card title="本局汇总（跨图合并）" desc="各图勾选的红品已合并，确认后保存为一条历史对局用于训练">
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-            <Stat label="红品数" value={summary.items.length} tone="accent" />
-            <Stat
-              label="红品平均格数"
-              value={summary.items.length ? (Math.floor((summary.items.reduce((s, it) => s + it.grid_cells, 0) / summary.items.length) * 10) / 10).toFixed(1) : "—"}
-            />
-            <Stat
-              label="红品总格数"
-              value={summary.items.reduce((s, it) => s + it.grid_cells, 0)}
-            />
-            <div>
-              <div className="text-xs text-content-secondary">总价值（可改）</div>
-              <input
-                className="input mt-1 w-full !py-1 text-sm tabular-nums"
-                type="number"
-                value={summary.settle.total_value ?? ""}
-                placeholder="—"
-                onChange={(e) => updateSettle("total_value", e.target.value)}
-              />
-            </div>
-            <div>
-              <div className="text-xs text-content-secondary">成交价（可改）</div>
-              <input
-                className="input mt-1 w-full !py-1 text-sm tabular-nums"
-                type="number"
-                value={summary.settle.deal_price ?? ""}
-                placeholder="—"
-                onChange={(e) => updateSettle("deal_price", e.target.value)}
-              />
-            </div>
-            <div>
-              <div className="text-xs text-content-secondary">收益（= 总价值−成交价，自动算）</div>
-              <input
-                className={`input mt-1 w-full !py-1 text-sm tabular-nums ${
-                  summary.settle.profit != null && summary.settle.profit < 0 ? "!text-vermilion-400" : "!text-jade-400"
-                }`}
-                type="number"
-                value={summary.settle.profit ?? ""}
-                placeholder="—"
-                onChange={(e) => updateSettle("profit", e.target.value)}
-              />
-            </div>
-          </div>
-          {(() => {
-            const tv = summary.settle.total_value;
-            const dp = summary.settle.deal_price;
-            const pf = summary.settle.profit;
-            if (tv == null || dp == null || pf == null) return null;
-            const calc = tv - dp;
-            const ok = Math.abs(pf - calc) <= 0.5;
-            return ok ? (
-              <div className="mt-2 rounded-lg border border-jade-400/40 bg-jade-soft px-3 py-1.5 text-xs text-jade-400">
-                ✓ 收益核验通过：{fmtMoney(pf)} = 总价值 − 成交价
-              </div>
-            ) : (
-              <div className="mt-2 rounded-lg border border-vermilion-400/40 bg-vermilion-soft px-3 py-1.5 text-xs text-vermilion-400">
-                ✗ 收益核验不通过：收益应为 总价值 − 成交价 = {fmtMoney(calc)}（当前 {fmtMoney(pf)}）。保存后该局将标红，且<strong>不进入模型训练</strong>。
-              </div>
-            );
-          })()}
-          <div className="mt-2 space-y-1">
-            {summary.items.map((it, i) => (
-              <div key={i} className="flex items-center gap-2 rounded-lg border border-ink-700/60 bg-ink-900/40 p-1.5 text-xs">
-                <span className="text-content-secondary">{i + 1}.</span>
-                <select
-                  className="input min-w-32 flex-1 !py-0.5 text-xs"
-                  value={it.name}
-                  onChange={(e) => {
-                    const it2 = items.find((x) => x.name === e.target.value);
-                    updateSummaryItem(i, {
-                      name: e.target.value,
-                      grid_cells: it2 ? it2.grid_cells : it.grid_cells,
-                      value: it2 ? it2.value : it.value,
-                    });
-                  }}
-                >
-                  {items.map((it2) => (
-                    <option key={it2.id} value={it2.name}>
-                      {it2.name}（{it2.grid_cells}格 · {fmtMoney(it2.value)}）
-                    </option>
-                  ))}
-                </select>
-                <input
-                  className="input w-16 !py-0.5 text-xs"
-                  type="number"
-                  value={it.grid_cells}
-                  onChange={(e) => updateSummaryItem(i, { grid_cells: Number(e.target.value) || 0 })}
+          {/* 本局汇总（跨图合并） */}
+          {summary.items.length > 0 && (
+            <Card title="本局汇总（跨图合并）" desc="各图识别的红品已合并，确认后保存为一条历史对局用于训练">
+              {pred && (
+                <div className="mb-2 rounded-lg border border-gold-400/30 bg-gold-soft/40 px-3 py-1.5 text-[11px] text-content-secondary">
+                  估值页预测：均格 <b className="text-gold-300">{pred.red_avg ?? "—"}</b> · 红品 <b className="text-gold-300">{pred.red_count ?? "—"}</b> · 总格 <b className="text-gold-300">{pred.total_grids ?? "—"}</b>（实际以本局汇总为准）
+                </div>
+              )}
+              <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+                <Stat label="红品数" value={summary.items.length} tone="accent" />
+                <Stat
+                  label="红品平均格数"
+                  value={summary.items.length ? (Math.floor((summary.items.reduce((s, it) => s + it.grid_cells, 0) / summary.items.length) * 10) / 10).toFixed(1) : "—"}
                 />
-                <input
-                  className="input w-24 !py-0.5 text-xs"
-                  type="number"
-                  value={it.value}
-                  onChange={(e) => updateSummaryItem(i, { value: Number(e.target.value) || 0 })}
+                <Stat
+                  label="红品总格数"
+                  value={summary.items.reduce((s, it) => s + it.grid_cells, 0)}
                 />
+                <div>
+                  <div className="text-xs text-content-secondary">总价值（可改）</div>
+                  <input
+                    className="input mt-1 w-full !py-1 text-sm tabular-nums"
+                    type="number"
+                    value={summary.settle.total_value ?? ""}
+                    placeholder="—"
+                    onChange={(e) => updateSettle("total_value", e.target.value)}
+                  />
+                </div>
+                <div>
+                  <div className="text-xs text-content-secondary">成交价（可改）</div>
+                  <input
+                    className="input mt-1 w-full !py-1 text-sm tabular-nums"
+                    type="number"
+                    value={summary.settle.deal_price ?? ""}
+                    placeholder="—"
+                    onChange={(e) => updateSettle("deal_price", e.target.value)}
+                  />
+                </div>
+                <div>
+                  <div className="text-xs text-content-secondary">收益（= 总价值−成交价，自动算）</div>
+                  <input
+                    className={`input mt-1 w-full !py-1 text-sm tabular-nums ${
+                      summary.settle.profit != null && summary.settle.profit < 0 ? "!text-vermilion-400" : "!text-jade-400"
+                    }`}
+                    type="number"
+                    value={summary.settle.profit ?? ""}
+                    placeholder="—"
+                    onChange={(e) => updateSettle("profit", e.target.value)}
+                  />
+                </div>
+              </div>
+              {(() => {
+                const tv = summary.settle.total_value;
+                const dp = summary.settle.deal_price;
+                const pf = summary.settle.profit;
+                if (tv == null || dp == null || pf == null) return null;
+                const calc = tv - dp;
+                const ok = Math.abs(pf - calc) <= 0.5;
+                return ok ? (
+                  <div className="mt-2 rounded-lg border border-jade-400/40 bg-jade-soft px-3 py-1.5 text-xs text-jade-400">
+                    ✓ 收益核验通过：{fmtMoney(pf)} = 总价值 − 成交价
+                  </div>
+                ) : (
+                  <div className="mt-2 rounded-lg border border-vermilion-400/40 bg-vermilion-soft px-3 py-1.5 text-xs text-vermilion-400">
+                    ✗ 收益核验不通过：收益应为 总价值 − 成交价 = {fmtMoney(calc)}（当前 {fmtMoney(pf)}）。保存后该局将标红，且<strong>不进入模型训练</strong>。
+                  </div>
+                );
+              })()}
+              <div className="mt-2 space-y-1">
+                {summary.items.map((it, i) => (
+                  <div key={i} className="flex items-center gap-2 rounded-lg border border-ink-700/60 bg-ink-900/40 p-1.5 text-xs">
+                    <span className="text-content-secondary">{i + 1}.</span>
+                    <select
+                      className="input min-w-32 flex-1 !py-0.5 text-xs"
+                      value={it.name}
+                      onChange={(e) => {
+                        const it2 = items.find((x) => x.name === e.target.value);
+                        updateSummaryItem(i, {
+                          name: e.target.value,
+                          grid_cells: it2 ? it2.grid_cells : it.grid_cells,
+                          value: it2 ? it2.value : it.value,
+                        });
+                      }}
+                    >
+                      {items.map((it2) => (
+                        <option key={it2.id} value={it2.name}>
+                          {it2.name}（{it2.grid_cells}格 · {fmtMoney(it2.value)}）
+                        </option>
+                      ))}
+                    </select>
+                    <input
+                      className="input w-16 !py-0.5 text-xs"
+                      type="number"
+                      value={it.grid_cells}
+                      onChange={(e) => updateSummaryItem(i, { grid_cells: Number(e.target.value) || 0 })}
+                    />
+                    <input
+                      className="input w-24 !py-0.5 text-xs"
+                      type="number"
+                      value={it.value}
+                      onChange={(e) => updateSummaryItem(i, { value: Number(e.target.value) || 0 })}
+                    />
+                    <button
+                      className="text-xs text-vermilion-400 hover:text-vermilion-400"
+                      onClick={() => removeSummaryItem(i)}
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-2 flex items-center gap-2">
                 <button
-                  className="text-xs text-vermilion-400 hover:text-vermilion-400"
-                  onClick={() => removeSummaryItem(i)}
+                  className="btn-ghost !py-1 text-xs"
+                  onClick={() => setSummary((prev) => ({
+                    ...prev,
+                    items: [...prev.items, { name: "", grid_cells: 1, value: 0 }],
+                  }))}
                 >
-                  ✕
+                  ＋ 添加红品
                 </button>
               </div>
-            ))}
-          </div>
-          <div className="mt-2 flex items-center gap-2">
-            <button
-              className="btn-ghost !py-1 text-xs"
-              onClick={() => setSummary((prev) => ({
-                ...prev,
-                items: [...prev.items, { name: "", grid_cells: 1, value: 0 }],
-              }))}
-            >
-              ＋ 添加红品
-            </button>
-          </div>
-          <div className="mt-3 flex flex-wrap items-center gap-3">
-            <label className="flex cursor-pointer items-center gap-2 text-xs text-content-primary">
-              <input
-                type="checkbox"
-                checked={won}
-                onChange={(e) => setWon(e.target.checked)}
-                className="h-4 w-4 rounded border-ink-600"
-              />
-              本人竞拍成功（收益规律仅统计勾选对局）
-            </label>
-            <button className="btn-primary !py-2 text-xs" onClick={saveSummary} disabled={summarySaving}>
-              {summarySaving ? "保存中…" : "💾 保存本局（并入训练）"}
-            </button>
-            <button
-              className="btn-ghost !py-2 text-xs text-vermilion-400"
-              onClick={resetAll}
-            >
-              清空本局
-            </button>
-          </div>
-        </Card>
-      )}
+              <div className="mt-3 flex flex-wrap items-center gap-3">
+                <label className="flex cursor-pointer items-center gap-2 text-xs text-content-primary">
+                  <input
+                    type="checkbox"
+                    checked={won}
+                    onChange={(e) => setWon(e.target.checked)}
+                    className="h-4 w-4 rounded border-ink-600"
+                  />
+                  本人竞拍成功（收益规律仅统计勾选对局）
+                </label>
+                <button className="btn-primary !py-2 text-xs" onClick={saveSummary} disabled={summarySaving}>
+                  {summarySaving ? "保存中…" : "💾 保存本局（并入训练）"}
+                </button>
+                <button
+                  className="btn-ghost !py-2 text-xs text-vermilion-400"
+                  onClick={resetAll}
+                >
+                  清空本局
+                </button>
+              </div>
+            </Card>
+          )}
 
-      {annotations.length > 0 && (
-        <Card title={`本图标注记录（${annotations.length}）`} desc="点击缩略图可放大核对，红品删除会同时移除学习样本">
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-            {annotations.map((a) => {
-              const thumb = `/api/vision/crop_box?image_path=${encodeURIComponent(a.image_path)}&box=${a.box.replace(/[\[\] ]/g, "")}`;
-              return (
-                <div key={a.id} className="rounded-xl border border-ink-700 bg-ink-900 p-2">
-                  <img src={thumb} alt="" className="h-24 w-full rounded-lg border border-ink-700 object-contain bg-ink-950" />
-                  <div className="mt-1.5 text-xs font-semibold text-content-primary">
-                    {KIND_LABEL[a.kind as Kind] ?? a.kind}
-                  </div>
-                  <div className="text-[11px] text-content-secondary">
-                    {a.name || "—"}
-                    {a.grid_cells ? ` · ${a.grid_cells}格` : ""}
-                    {a.value != null ? ` · ${a.value.toLocaleString()}` : ""}
-                  </div>
-                  <button
-                    className="mt-1.5 w-full rounded-lg border border-vermilion-400/40 bg-vermilion-soft py-1 text-[11px] text-vermilion-400"
-                    onClick={() => deleteAnno(a.id)}
-                  >
-                    删除
-                  </button>
-                </div>
-              );
-            })}
+          {/* 本图标注记录（可折叠） */}
+          {annotations.length > 0 && (
+            <details className="rounded-xl border border-ink-700 bg-ink-900/40 p-3">
+              <summary className="cursor-pointer text-xs text-content-secondary">本图标注记录（{annotations.length}）— 点击展开</summary>
+              <div className="mt-3 grid grid-cols-2 gap-3 md:grid-cols-4">
+                {annotations.map((a) => {
+                  const thumb = `/api/vision/crop_box?image_path=${encodeURIComponent(a.image_path)}&box=${a.box.replace(/[\[\] ]/g, "")}`;
+                  return (
+                    <div key={a.id} className="rounded-xl border border-ink-700 bg-ink-900 p-2">
+                      <img src={thumb} alt="" className="h-24 w-full rounded-lg border border-ink-700 object-contain bg-ink-950" />
+                      <div className="mt-1.5 text-xs font-semibold text-content-primary">
+                        {KIND_LABEL[a.kind as Kind] ?? a.kind}
+                      </div>
+                      <div className="text-[11px] text-content-secondary">
+                        {a.name || "—"}
+                        {a.grid_cells ? ` · ${a.grid_cells}格` : ""}
+                        {a.value != null ? ` · ${a.value.toLocaleString()}` : ""}
+                      </div>
+                      <button
+                        className="mt-1.5 w-full rounded-lg border border-vermilion-400/40 bg-vermilion-soft py-1 text-[11px] text-vermilion-400"
+                        onClick={() => deleteAnno(a.id)}
+                      >
+                        删除
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </details>
+          )}
+        </div>
+      </div>
+
+      {msg && <div className="text-sm text-jade-400">{msg}</div>}
+
+      {/* ── 底部固定操作栏 ── */}
+      <div
+        className="sticky bottom-0 z-10 -mx-4 border-t border-border bg-bg-surface px-4 py-3 shadow-[0_-8px_24px_-12px_rgba(0,0,0,0.5)] sm:-mx-6 sm:px-6"
+        style={{ marginTop: "var(--space-6)" }}
+      >
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-4 text-xs text-content-secondary">
+            <span>
+              已确认 <b className="text-jade-400">{confirmedCount}</b>/{cells.length}
+            </span>
+            <span>
+              待确认 <b className="text-amber-400">{pendingCount}</b>
+            </span>
+            <span>
+              已修正 <b className="text-sky-400">{corrected}</b>
+            </span>
           </div>
-        </Card>
-      )}
+          <div className="flex flex-wrap items-center gap-2">
+            <button className="btn-ghost !py-2 text-xs" onClick={confirmAll} disabled={cells.length === 0}>
+              ✓ 全部确认
+            </button>
+            <button className="btn-ghost !py-2 text-xs" onClick={() => switchImage(activeIdx + 1)} disabled={images.length === 0}>
+              ⤼ 跳过本图
+            </button>
+            <button
+              className="btn-primary !py-2 text-xs"
+              onClick={saveSummary}
+              disabled={summarySaving || summary.items.length === 0}
+            >
+              {summarySaving ? "保存中…" : "💾 保存"}
+            </button>
+            <button className="btn-ghost !py-2 text-xs" onClick={onNewRound}>
+              🔄 开始新对局
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
