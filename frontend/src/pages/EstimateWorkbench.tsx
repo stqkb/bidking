@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useReducer, useRef, useState, type Dispatch, type ReactNode } from "react";
+import { useEffect, useMemo, useReducer, useRef, useState, useCallback, type Dispatch, type ReactNode } from "react";
 import { api } from "../api";
 import type {
   CatalogItem,

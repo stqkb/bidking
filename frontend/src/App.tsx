@@ -29,7 +29,7 @@ function PageSkeleton() {
 }
 
 export default function App() {
-  const [page, setPage] = useState<PageKey>("dashboard");
+  const [page, setPage] = useState<PageKey>("estimate");
   const [collapsed, setCollapsed] = useState(false);
   const [health, setHealth] = useState<{ catalog: number; games: number } | null>(null);
   const [online, setOnline] = useState<boolean | null>(null);
