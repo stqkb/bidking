@@ -41,3 +41,7 @@ data/crops_feats.meta
 
 # Vite 构建临时文件
 frontend/*.timestamp-*.mjs
+
+# 内部工作记忆与剪贴板截图（不随仓库传播）
+.workbuddy/
+data/captures/
