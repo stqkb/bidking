@@ -52,6 +52,10 @@ def _startup() -> None:
         ml_stat = ml.model_status(conn)
     if n_games >= ml.MIN_SAMPLES and not ml_stat.get("trained"):
         bg.start("ml", estimator.retrain_ml)
+    if n_games > 0:
+        # 预热校准系数（含全场 LOESS 曲线）：不预热则估值读不到 calib 缓存，
+        # 全程按未校准口径输出。约 20s，放后台不阻塞冷启动。
+        bg.start("calib", estimator.warm_calibration)
     if n_cat > 0:
         from . import cnn as cnn_mod  # 惰性导入（冷启动优化）
         if not cnn_mod.status().get("trained"):

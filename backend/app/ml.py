@@ -28,6 +28,32 @@ FEATURES = [
     "known_ratio", "game_no_norm", "rule_red_log", "rule_full_log",
 ]
 
+# 特征 v2（交互特征）：107 样本时过拟合被否决，250 样本重启回测后采纳并启用。
+# 4 个交互特征：known_size_x_log_value / candidate_grid_spread / info_ratio /
+# avg_bucket_id。GP ARD 诊断：candidate_grid_spread(1.0) 与 avg_bucket_id(2.4)
+# 信息量最高；info_ratio(390) 与 known_size_x_log_value(1e5) 近乎被忽略。
+# 时序 70/30 回测：red MAPE 20.73% → 20.41%，全场偏差持平（0.954），故保留
+# 全部 4 个（剪到 2 个反而退化到 20.8%）。置 False 可一键回退到 base 特征。
+USE_V2_FEATURES = True
+
+_V2_FEATURES = [
+    "known_size_x_log_value", "candidate_grid_spread", "info_ratio", "avg_bucket_id",
+]
+
+# 均格分桶 id（与 estimator._avg_bucket 同源）：lt2=0, 2-3=1, 3-4=2, gt4=3
+def _avg_bucket_id(avg: float) -> float:
+    if avg < 2:
+        return 0.0
+    if avg < 3:
+        return 1.0
+    if avg < 4:
+        return 2.0
+    return 3.0
+
+
+def _active_features() -> list[str]:
+    return FEATURES + (_V2_FEATURES if USE_V2_FEATURES else [])
+
 # 数据指纹缓存：训练/评估只依赖 game_records + catalog_items，
 # 用两个表的轻量 hash 作指纹，数据未变时复用 dataset 与 LOOCV/chrono 评估结果，
 # 避免每次 OCR 确认触发重训时重复全量计算（LOOCV 的 O(n) 次集成拟合是最大开销）。
@@ -127,6 +153,13 @@ def build_dataset(conn) -> tuple[list[dict[str, Any]], list[float], list[float]]
             "rule_red_log": math.log(rule_r) if rule_r > 0 else 0.0,
             "rule_full_log": math.log(rule_f) if rule_f > 0 else 0.0,
         }
+        if USE_V2_FEATURES:
+            ks = feat["known_size"]
+            lkv = feat["log_known_value"]
+            feat["known_size_x_log_value"] = ks * lkv
+            feat["candidate_grid_spread"] = feat["rule_full_log"] - feat["rule_red_log"]
+            feat["info_ratio"] = (ks / float(a)) if (ks and a) else 0.0
+            feat["avg_bucket_id"] = _avg_bucket_id(feat["red_avg"])
         feats.append(feat)
         y_red.append(math.log(float(r["red_value"])) - feat["rule_red_log"])
         y_full.append(math.log(float(r["full_value"])) - feat["rule_full_log"])
@@ -137,7 +170,7 @@ def build_dataset(conn) -> tuple[list[dict[str, Any]], list[float], list[float]]
 
 def _impute(feats: list[dict[str, Any]]) -> dict[str, float]:
     med: dict[str, float] = {}
-    for f in FEATURES:
+    for f in _active_features():
         vals = [x[f] for x in feats]
         med[f] = float(np.median(vals)) if vals else 0.0
     return med
@@ -156,7 +189,7 @@ def _make_models(fast_gp: bool = False):
         # ARD Matern 核：每个特征一个长度尺度（自动学特征重要性），nu=2.5 允许轻微不光滑；
         # n_restarts_optimizer=3 多次重启避免核超参落入局部最优（LOOCV 耗时主要来自 GP fit）
         "gp": GaussianProcessRegressor(
-            kernel=1.0 * Matern(nu=2.5, length_scale=np.ones(len(FEATURES)))
+            kernel=1.0 * Matern(nu=2.5, length_scale=np.ones(len(_active_features())))
                   + WhiteKernel(noise_level=0.05),
             normalize_y=True,
             n_restarts_optimizer=0 if fast_gp else 3,
@@ -238,7 +271,7 @@ def _metrics(y_true: np.ndarray, y_pred: np.ndarray, orig_scale: list[float]) ->
 def _evaluate(feats, y_red, y_full, mode: str) -> dict[str, Any]:
     n = len(feats)
     med = _impute(feats)
-    X = np.asarray([[f[k] if f[k] == f[k] else med[k] for k in FEATURES] for f in feats])
+    X = np.asarray([[f[k] if f[k] == f[k] else med[k] for k in _active_features()] for f in feats])
     YR = np.asarray(y_red)
     YF = np.asarray(y_full)
     pred_r = np.zeros(n)
@@ -293,7 +326,7 @@ def _calibration_curve(feats, y_full) -> dict[str, Any]:
     if n < 6:
         return {"bins": [], "pred": [], "actual": []}
     med = _impute(feats)
-    X = np.asarray([[f[k] if f[k] == f[k] else med[k] for k in FEATURES] for f in feats])
+    X = np.asarray([[f[k] if f[k] == f[k] else med[k] for k in _active_features()] for f in feats])
     Y = np.asarray(y_full)
     pred = np.zeros(n)
     for i in range(n):
@@ -339,7 +372,7 @@ def retrain(conn) -> dict[str, Any]:
     if n < MIN_SAMPLES:
         return {"ok": False, "error": f"样本不足（{n} < {MIN_SAMPLES}），暂不训练", "n": n}
     med = _impute(feats)
-    X = np.asarray([[f[k] if f[k] == f[k] else med[k] for k in FEATURES] for f in feats])
+    X = np.asarray([[f[k] if f[k] == f[k] else med[k] for k in _active_features()] for f in feats])
     YR = np.asarray(y_red)
     YF = np.asarray(y_full)
     models_r = _fit_ensemble(X, YR)
@@ -353,7 +386,7 @@ def retrain(conn) -> dict[str, Any]:
     for m in models_f:
         if hasattr(m, "feature_importances_"):
             imp = np.asarray(m.feature_importances_, dtype=float)
-            for k, v in zip(FEATURES, imp):
+            for k, v in zip(_active_features(), imp):
                 importance[k] = importance.get(k, 0.0) + float(v)
             break
 
@@ -387,7 +420,7 @@ def retrain(conn) -> dict[str, Any]:
         "gp_full": gp_full,
         "gp_scale": gp_scale,
         "gp_coverage": gp_cov,
-        "feature_names": FEATURES,
+        "feature_names": _active_features(),
         "impute": med,
         "loocv": loocv,
         "chrono": chrono,
@@ -437,7 +470,7 @@ def loocv_table(conn) -> list[dict[str, Any]]:
     payload = _load("ml_full.joblib")
     q = (payload or {}).get("loocv", {}).get("residual_q", {"q10": -0.4, "q90": 0.4})
     med = _impute(feats)
-    X = np.asarray([[f[k] if f[k] == f[k] else med[k] for k in FEATURES] for f in feats])
+    X = np.asarray([[f[k] if f[k] == f[k] else med[k] for k in _active_features()] for f in feats])
     YR = np.asarray(y_red)
     YF = np.asarray(y_full)
     out: list[dict[str, Any]] = []
@@ -495,6 +528,13 @@ def predict(conn, inputs: dict[str, Any], rule: dict[str, Any]) -> dict[str, Any
         "rule_red_log": math.log(rule["red"]["ev"]) if rule["red"]["ev"] > 0 else 0.0,
         "rule_full_log": math.log(rule["full"]["ev"]) if rule["full"]["ev"] > 0 else 0.0,
     }
+    if USE_V2_FEATURES:
+        ks = feat["known_size"]
+        lkv = feat["log_known_value"]
+        feat["known_size_x_log_value"] = ks * lkv
+        feat["candidate_grid_spread"] = feat["rule_full_log"] - feat["rule_red_log"]
+        feat["info_ratio"] = (ks / float(a)) if (ks and a) else 0.0
+        feat["avg_bucket_id"] = _avg_bucket_id(feat["red_avg"])
     feat_names = payload.get("feature_names") or FEATURES
     X = np.asarray([[feat.get(k) if feat.get(k) == feat.get(k) else payload["impute"].get(k, 0.0) for k in feat_names]])
     res_r = _predict_ensemble(payload["models_red"], X)[0]
