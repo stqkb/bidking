@@ -45,8 +45,30 @@ def _get_catalog_index(conn) -> dict[str, list[dict[str, Any]]]:
     return cache._cache.get(cache.KEY_CATALOG_INDEX, _load)
 
 
+def _is_subseq_one_gap(a: str, b: str) -> bool:
+    """a、b 仅差一个字符（其一为另一删/增一字），且短名是长名的子序列。
+
+    对应 OCR 漏读/多读一个生僻字（如「女史图」漏「箴」→「女史箴图」）。
+    比纯编辑距离安全：同长替换（非洲之心↔非洲之爪）不算，避免误伤不同藏品。
+    """
+    if abs(len(a) - len(b)) != 1:
+        return False
+    short, long = (a, b) if len(a) < len(b) else (b, a)
+    i = j = skipped = 0
+    while i < len(short) and j < len(long):
+        if short[i] == long[j]:
+            i += 1
+            j += 1
+        else:
+            j += 1
+            skipped += 1
+            if skipped > 1:
+                return False
+    return True
+
+
 def _base_score(nn: str, rn: str, alias_rn: str | None) -> float:
-    """名称三级打分的公共核心（exact / alias / 前缀包含）。返回 0 表示不匹配。
+    """名称打分的公共核心（exact / alias / 前缀包含 / 单字漏读子序列）。返回 0 表示不匹配。
 
     match_by_name 与 match_catalog 共用，保证两条路径的命名口径完全一致。
     """
@@ -65,6 +87,10 @@ def _base_score(nn: str, rn: str, alias_rn: str | None) -> float:
         return 42  # 如「非洲之心」之于「非洲之心碎料」，弱化
     if prefix:
         return 46
+    # OCR 漏/多读一个生僻字：短名是长名的子序列（差1字）。
+    # 如「女史图」漏「箴」→「女史箴图」；「百骏图」读成「百骏图」exact 已命中。
+    if len(nn) >= 2 and len(rn) >= 2 and _is_subseq_one_gap(nn, rn):
+        return 64  # 介于前缀(62)与 exact(100) 之间，单字漏读近似命中
     return 0
 
 
@@ -80,7 +106,7 @@ def _base_candidate(r: dict[str, Any], score: float) -> dict[str, Any]:
 
 
 def match_by_name(conn, name: str) -> list[dict[str, Any]]:
-    """按名称模糊匹配图鉴（exact/alias/前缀三级打分），返回前 4 候选。
+    """按名称模糊匹配图鉴（exact/alias/前缀/单字漏读 四级打分），返回前 4 候选。
 
     原名 ocr._match_by_name。供 OCR 板面识别、图鉴联想使用。
     """
@@ -108,7 +134,7 @@ def match_by_name(conn, name: str) -> list[dict[str, Any]]:
 def match_catalog(conn, name: str, price: float, cells: int) -> list[dict[str, Any]]:
     """名称 + 格数 + 价格三重匹配图鉴，返回前 6 候选。
 
-    原名 ocr._match_catalog。基于 match_by_name 的名称评分核心，叠加格数惩罚
+    原名 ocr._match_catalog。基于 _base_score 的名称评分核心，叠加格数惩罚
     与价格加分，且带「纯价格兜底」回退分支。
     """
     rows = _get_catalog_rows(conn)
@@ -195,123 +221,6 @@ def _build_alias_map(conn) -> dict[str, str]:
         return alias
 
     return cache._cache.get(cache.KEY_ALIAS_MAP, _load)
-
-
-def match_by_name(conn, name: str) -> list[dict[str, Any]]:
-    """按名称模糊匹配图鉴（exact/alias/前缀三级打分），返回前 4 候选。
-
-    原名 ocr._match_by_name。供 OCR 板面识别、图鉴联想使用。
-    """
-    rows = _get_catalog_rows(conn)
-    nn = norm_name(name)
-    alias_target = _build_alias_map(conn).get(nn)
-    cands: list[dict[str, Any]] = []
-    for r in rows:
-        rn = norm_name(r["name"])
-        exact = len(nn) > 0 and nn == rn
-        alias_hit = alias_target is not None and rn == norm_name(alias_target)
-        ocr_prefix = len(nn) >= 2 and nn in rn and nn != rn  # OCR 截断（名短于图鉴）
-        cat_prefix = len(rn) >= 2 and rn in nn and nn != rn  # OCR 名比图鉴多字
-        prefix = len(nn) >= 3 and len(rn) >= 3 and nn[:3] == rn[:3]
-        if exact or alias_hit:
-            score = 100
-        elif ocr_prefix:
-            score = 62 + 8 * len(nn) / max(len(rn), 1)
-        elif cat_prefix:
-            score = 42
-        elif prefix:
-            score = 46
-        else:
-            continue
-        cands.append({
-            "name": r["name"],
-            "grid_cells": r["grid_cells"],
-            "value": r["value"],
-            "current_value": r["current_value"],
-            "score": round(score, 1),
-            "price_ok": True,
-            "by_price": False,
-        })
-    cands = [c for c in cands if c["score"] >= 50]
-    cands.sort(key=lambda c: -c["score"])
-    return cands[:4]
-
-
-def match_catalog(conn, name: str, price: float, cells: int) -> list[dict[str, Any]]:
-    """名称 + 格数 + 价格三重匹配图鉴，返回前 6 候选。
-
-    原名 ocr._match_catalog。规则是 match_by_name 的超集：叠加格数惩罚与价格加分，
-    且带「纯价格兜底」回退分支。
-    """
-    rows = _get_catalog_rows(conn)
-    nn = norm_name(name)
-    alias_target = _build_alias_map(conn).get(nn)
-    candidates: list[dict[str, Any]] = []
-    for r in rows:
-        rn = norm_name(r["name"])
-        exact = len(nn) > 0 and nn == rn
-        alias_hit = alias_target is not None and rn == norm_name(alias_target)
-        ocr_prefix = len(nn) >= 2 and nn in rn and nn != rn
-        cat_prefix = len(rn) >= 2 and rn in nn and nn != rn
-        prefix = len(nn) >= 3 and len(rn) >= 3 and nn[:3] == rn[:3]
-        if exact or alias_hit:
-            score = 100
-        elif ocr_prefix:
-            score = 62 + 8 * len(nn) / max(len(rn), 1)
-        elif cat_prefix:
-            score = 42  # 如「非洲之心」之于「非洲之心碎料」，弱化
-        elif prefix:
-            score = 46
-        else:
-            continue
-        if cells and r["grid_cells"] != cells:
-            score -= 25
-        rel = min(
-            abs(r["value"] - price) / max(price, 1),
-            abs((r["current_value"] or r["value"]) - price) / max(price, 1),
-        )
-        price_ok = rel <= 0.02
-        if price_ok:
-            score += 15
-        elif rel <= 0.05:
-            score += 5
-        candidates.append({
-            "name": r["name"],
-            "grid_cells": r["grid_cells"],
-            "value": r["value"],
-            "current_value": r["current_value"],
-            "score": round(score, 1),
-            "price_rel": round(rel, 3),
-            "price_ok": bool(price_ok),
-            "by_price": False,
-        })
-    candidates = [c for c in candidates if c["score"] >= 50]
-    if not candidates:
-        # 兜底：名称对不上时，按 格数 + 价格精确命中 推荐候选
-        for r in rows:
-            if cells and r["grid_cells"] != cells:
-                continue
-            for v in (r["value"], r["current_value"] or r["value"]):
-                if abs(v - price) / max(price, 1) <= 0.02:
-                    candidates.append({
-                        "name": r["name"],
-                        "grid_cells": r["grid_cells"],
-                        "value": r["value"],
-                        "current_value": r["current_value"],
-                        "score": 42.0,
-                        "price_rel": round(abs(v - price) / max(price, 1), 3),
-                        "price_ok": True,
-                        "by_price": True,
-                    })
-                    break
-        if not candidates:
-            return []
-    candidates.sort(key=lambda c: (-c["score"], c["price_rel"]))
-    best = candidates[0]["score"]
-    threshold = max(50, best - 15)
-    if not any(not c["by_price"] for c in candidates):
-        threshold = 42  # 纯按价格兜底命中的候选直接返回
-    return [c for c in candidates if c["score"] >= threshold][:6]
 
 
 def identify_by_grid(

@@ -243,6 +243,52 @@ def _extract_red_avg(boxes: list[dict[str, Any]]) -> float | None:
     return None
 
 
+# 角色被动揭示的最高品质红品横幅：「百万级大红藏品《NAME》」/「大红藏品《NAME》」。
+# 该横幅是唯一权威的红品来源：红品以顶部红底横幅呈现，名称框上方并非红底，
+# 故 red_cell_ratio 几近为 0，不能靠红底检测；直接取横幅文字里的 NAME。
+# 注意：OCR 常把横幅拆成「百万级大红藏品」「《NAME》」两个框，故按阅读顺序
+# 拼接所有框后再整体匹配；正则贪婪抓取书名号内的中文名（至空格/标点止）。
+_RED_BANNER_RE = re.compile(r"大红藏品\s*《?\s*([\u4e00-\u9fff·\-]+)")
+# 兜底：揭示触发文本存在时，红品名以《NAME》形式出现在画面最上方（红品横幅在顶部）。
+_NAME_RE = re.compile(r"《?\s*([\u4e00-\u9fff·\-]{2,})\s*》?")
+
+
+def _extract_red_banner_name(boxes: list[dict[str, Any]]) -> str | None:
+    """从 OCR 文本中解析红品横幅里的红品名（如「百万级大红藏品《女史图》」-> 女史图）。
+
+    三级拾取，鲁棒应对 OCR 抖动：
+    1) 显式横幅「大红藏品《NAME》」（角色被动揭示的最高品质红品）；
+    2) 存在揭示触发文本（最高品质1件藏品 / 红品藏品的平均格数）时，
+       取画面最顶部（最小 cy）的《NAME》框——红品横幅总在顶部；
+    3) 均未命中返回 None，交由原有 red_cell_ratio 启发式兜底。
+    """
+    # 1) 显式横幅
+    combined = " ".join(
+        b.get("text", "") for b in sorted(boxes, key=lambda x: (x.get("cy", 0), x.get("cx", 0)))
+    )
+    m = _RED_BANNER_RE.search(combined)
+    if m:
+        return m.group(1).strip()
+    # 2) 揭示触发文本存在 -> 最顶部《NAME》（必须带书名号，排除游戏标题等噪声）
+    joined = " ".join(b.get("text", "") for b in boxes)
+    has_reveal = ("最高品质1件藏品" in joined) or ("红品藏品的平均格数" in joined)
+    if has_reveal:
+        top = None
+        for b in boxes:
+            t = b.get("text", "") or ""
+            if "《" not in t and "》" not in t:
+                continue
+            mm = _NAME_RE.search(t)
+            if not mm:
+                continue
+            cy = b.get("cy", 1e9)
+            if top is None or cy < top[1]:
+                top = (mm.group(1).strip(), cy)
+        if top:
+            return top[0]
+    return None
+
+
 # 识别结果 LRU 缓存：同一文件（路径+mtime+大小+缩放档位）不重复 OCR。
 # 对局归档/多图合并等场景常对同一张图多次识别，命中后直接返回。
 _OCR_CACHE: "OrderedDict[tuple[Any, ...], list[dict[str, Any]]]" = OrderedDict()
@@ -847,6 +893,48 @@ def recognize_single(conn, image_path: str) -> dict[str, Any]:
         visual_high = bool(it.get("visual")) and (it["visual"][0].get("score") or 0) >= 0.80
         red_thr = 0.15 if (it.get("matched") and visual_high) else 0.30
         it["is_red"] = red_ratio >= red_thr and (it.get("matched") or bool(it.get("visual")))
+    # ---- 权威红品标定：横幅「大红藏品《NAME》」----
+    # 角色被动揭示的最高品质红品以顶部红底横幅呈现，名称框上方非红底，
+    # red_cell_ratio 几近为 0，单靠红底检测会漏判；且其它格误带红边/图标视觉
+    # 高置信时（如《百骏图》）会被 red_cell_ratio+visual 误判成红品。
+    # 故以横幅文字解析出的红品名为准：命中即 is_red=True；其余非强红底
+    # （red_ratio<0.30）的误判红品一律置 False，避免多算红品。
+    banner_name = _extract_red_banner_name(boxes)
+    banner_matched = None
+    if banner_name:
+        bm = matching.match_by_name(conn, banner_name)
+        if bm:
+            banner_matched = bm[0]["name"]
+        nn_b = _norm_name(banner_name)
+        for it in items:
+            nm = _norm_name(it.get("name", ""))
+            # 名称完全相等，或单字漏读（短名是长名的子序列），即判定为同一红品
+            is_hit = (nm == nn_b) or (
+                len(nm) >= 2 and len(nn_b) >= 2 and matching._is_subseq_one_gap(nm, nn_b)
+            )
+            if is_hit:
+                it["is_red"] = True
+                it["red_from_banner"] = True
+                if bm:
+                    m0 = bm[0]
+                    it["name"] = m0["name"]
+                    it["matches"] = bm
+                    it["matched"] = True
+                    it["price"] = m0.get("value") or it.get("price")
+                    it["grid_cells"] = m0["grid_cells"] or it.get("grid_cells")
+        # 横幅红品可能被 _BANNER_KEYWORDS 过滤、未被 _board_items 捕获，则补建一条
+        if not any(it.get("is_red") and it.get("red_from_banner") for it in items) and bm:
+            m0 = bm[0]
+            items.append({
+                "name": m0["name"], "price": m0.get("value"),
+                "grid_cells": m0["grid_cells"], "matches": bm, "matched": True,
+                "is_red": True, "red_from_banner": True, "name_box": None,
+                "red_ratio": 0.0, "visual": [],
+            })
+        # 抑制其它靠红边/视觉误判的红品（保留强红底 red_ratio>=0.30 者）
+        for it in items:
+            if not it.get("red_from_banner") and (it.get("red_ratio", 0) or 0) < 0.30:
+                it["is_red"] = False
     red_items = [it for it in items if it.get("is_red")]
     red_count = len(red_items)
     total_cells = sum(int(it.get("grid_cells") or 0) for it in red_items)
